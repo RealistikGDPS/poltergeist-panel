@@ -1,0 +1,37 @@
+# Runs next to a Poltergeist deployment on the same Docker network, so the
+# panel reaches its MySQL and Redis by service name and Poltergeist's nginx
+# can route /panel here. Start Poltergeist first.
+services:
+  panel:
+    image: poltergeist-panel:latest
+    container_name: poltergeist-panel
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - APP_COMPONENT=panel
+      - APP_STORAGE_PATH=/app/storage
+      - PANEL_HTTP_PORT=8501
+      - PANEL_BASE_PATH=/panel
+      - MYSQL_HOST=mysql
+      - MYSQL_TCP_PORT=3306
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DATABASE=0
+    env_file:
+      - ./configuration/app.env
+      - ./configuration/mysql.env
+    volumes:
+      - ${STORAGE_DATA_PATH}:/app/storage:z
+    networks:
+      - poltergeist
+    healthcheck:
+      test: "curl --fail http://localhost:8501/panel/_stcore/health"
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+networks:
+  poltergeist:
+    external: true
+    name: ${POLTERGEIST_NETWORK}
