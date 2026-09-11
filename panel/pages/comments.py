@@ -23,14 +23,12 @@ class LevelListing:
     comments: list[Comment]
     users: dict[int, User]
     level_names: dict[int, str]
-    total: int
 
 
 @dataclass(frozen=True, slots=True)
 class ProfileListing:
     comments: list[AccountComment]
     users: dict[int, User]
-    total: int
 
 
 async def _level_listing(
@@ -47,7 +45,6 @@ async def _level_listing(
         comments=found,
         users={user.id: user for user in users},
         level_names={level.id: level.name for level in found_levels},
-        total=await ctx.comments.count_recent(query=query, user_id=user_id),
     )
 
 
@@ -59,11 +56,7 @@ async def _profile_listing(
     )
     users = await ctx.users.find_many_by_ids(list({entry.user_id for entry in found}))
 
-    return ProfileListing(
-        comments=found,
-        users={user.id: user for user in users},
-        total=await ctx.account_comments.count_recent(query=query, user_id=user_id),
-    )
+    return ProfileListing(comments=found, users={user.id: user for user in users})
 
 
 async def _delete_level_comments(
@@ -114,27 +107,45 @@ async def _ban_authors(
     ]
 
 
-def _filters(key: str) -> tuple[str, int | None]:
-    left, right = st.columns([3, 1])
-    query = left.text_input("Content contains", key=f"{key}_query")
-    author = right.text_input("Author id", key=f"{key}_author")
+def _filters(key: str) -> tuple[str, int | None, int]:
+    with components.toolbar():
+        query = st.text_input("Content contains", key=f"{key}_query")
+        author = st.text_input("Author id", key=f"{key}_author")
+        author_id = int(author) if author.strip().isdecimal() else None
+        total = runtime.active().run(
+            lambda ctx: (
+                ctx.comments.count_recent(query=query, user_id=author_id)
+                if key == "lc"
+                else ctx.account_comments.count_recent(query=query, user_id=author_id)
+            )
+        )
+        page_index = components.paginator(key, total)
 
-    return query, int(author) if author.strip().isdecimal() else None
+    return query, author_id, page_index
 
 
 def _actions(
-    key: str, comment_ids: list[int], author_ids: list[int], *, profile: bool
+    key: str,
+    comment_ids: list[int],
+    author_ids: list[int],
+    actor: int,
+    *,
+    profile: bool,
 ) -> None:
-    operator = current()
+    if not comment_ids:
+        st.markdown(
+            theme.muted("Select rows to delete them or to ban their authors."),
+            unsafe_allow_html=True,
+        )
 
-    if operator is None or not comment_ids:
         return
 
-    actor = operator.user_id
-    st.markdown(f"#### Bulk actions · {len(comment_ids)} selected")
-    left, right = st.columns(2)
+    delete_column, ban_column = st.columns(2, border=True)
 
-    with left:
+    with delete_column:
+        st.markdown("#### Delete")
+        components.badges([f"{len(comment_ids)} comments"], "blue")
+
         if components.confirm("Delete selected comments", f"{key}_delete"):
             action = _delete_profile_comments if profile else _delete_level_comments
             components.report_bulk(
@@ -143,18 +154,17 @@ def _actions(
             )
             st.rerun()
 
-    with right, st.form(f"{key}_ban_form"):
-        st.markdown(
-            theme.muted(f"Comment-ban the {len(set(author_ids))} distinct authors."),
-            unsafe_allow_html=True,
-        )
-        permanent = st.checkbox("Permanent", key=f"{key}_perm")
-        days = st.number_input(
+    with ban_column, st.form(f"{key}_ban_form", border=False):
+        st.markdown("#### Comment-ban the authors")
+        components.badges([f"{len(set(author_ids))} authors"], "blue")
+        left, right = st.columns(2)
+        permanent = left.checkbox("Permanent", key=f"{key}_perm")
+        days = right.number_input(
             "Days", min_value=1, max_value=3650, value=3, key=f"{key}_days"
         )
         reason = st.text_input("Reason", max_chars=255, key=f"{key}_reason")
 
-        if st.form_submit_button("Ban authors", type="primary"):
+        if st.form_submit_button("Ban authors", type="primary", width="stretch"):
             components.report_bulk(
                 runtime.active().run(
                     lambda ctx: _ban_authors(
@@ -171,14 +181,16 @@ def _actions(
 
 def page() -> None:
     components.header("Comments", "Review level comments and profile posts in bulk.")
+    operator = current()
+
+    if operator is None:
+        return
+
+    actor = operator.user_id
     level_tab, profile_tab = st.tabs(["Level comments", "Profile posts"])
 
     with level_tab:
-        query, author = _filters("lc")
-        total = runtime.active().run(
-            lambda ctx: ctx.comments.count_recent(query=query, user_id=author)
-        )
-        page_index = components.paginator("lc", total)
+        query, author, page_index = _filters("lc")
         listing = runtime.active().run(
             lambda ctx: _level_listing(ctx, query, author, page_index)
         )
@@ -189,9 +201,7 @@ def page() -> None:
                     "author": listing.users[entry.user_id].username
                     if entry.user_id in listing.users
                     else f"#{entry.user_id}",
-                    "on": listing.level_names.get(
-                        entry.level_id or 0, f"list {entry.list_id}"
-                    )
+                    "on": listing.level_names.get(entry.level_id, f"#{entry.level_id}")
                     if entry.level_id is not None
                     else f"list {entry.list_id}",
                     "content": entry.content,
@@ -208,15 +218,12 @@ def page() -> None:
             "lc",
             [entry.id for entry in chosen],
             [entry.user_id for entry in chosen],
+            actor,
             profile=False,
         )
 
     with profile_tab:
-        query, author = _filters("pc")
-        total = runtime.active().run(
-            lambda ctx: ctx.account_comments.count_recent(query=query, user_id=author)
-        )
-        page_index = components.paginator("pc", total)
+        query, author, page_index = _filters("pc")
         profile = runtime.active().run(
             lambda ctx: _profile_listing(ctx, query, author, page_index)
         )
@@ -240,5 +247,6 @@ def page() -> None:
             "pc",
             [entry.id for entry in chosen_profile],
             [entry.user_id for entry in chosen_profile],
+            actor,
             profile=True,
         )

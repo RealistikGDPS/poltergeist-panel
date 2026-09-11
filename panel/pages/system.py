@@ -39,15 +39,19 @@ def page() -> None:
 
     actor = operator.user_id
     facts = runtime.active().run(_facts)
-    first, second, third, fourth = st.columns(4)
-    first.metric("MySQL", "up" if facts.mysql else "down")
-    second.metric("Redis", "up" if facts.redis else "down")
-    third.metric("Redis memory", facts.redis_facts.get("used_memory_human", "?"))
-    fourth.metric("Redis keys", facts.redis_facts.get("keys", "?"))
+    grid = st.columns(4)
+    components.metric(grid[0], "MySQL", "up" if facts.mysql else "down")
+    components.metric(grid[1], "Redis", "up" if facts.redis else "down")
+    components.metric(
+        grid[2], "Redis memory", facts.redis_facts.get("used_memory_human", "?")
+    )
+    components.metric(grid[3], "Redis keys", facts.redis_facts.get("keys", "?"))
 
-    st.markdown(
-        theme.card(
-            "Configuration",
+    config_column, actions_column = st.columns([3, 2], border=True)
+
+    with config_column:
+        st.markdown("#### Configuration")
+        components.facts(
             [
                 ("Public URL", settings.APP_PUBLIC_URL),
                 ("Server name", settings.APP_SERVER_NAME),
@@ -66,14 +70,10 @@ def page() -> None:
                 ("Save limit", f"{settings.APP_SAVE_MAX_BYTES:,} bytes"),
                 ("Session cache", f"{settings.APP_SESSION_SECONDS}s"),
                 ("Server time", f"{clock.now():%Y-%m-%d %H:%M:%S} UTC"),
-            ],
-        ),
-        unsafe_allow_html=True,
-    )
+            ]
+        )
 
-    left, right = st.columns(2)
-
-    with left:
+    with actions_column:
         st.markdown("#### Leaderboards")
         st.markdown(
             theme.muted(
@@ -82,20 +82,24 @@ def page() -> None:
             unsafe_allow_html=True,
         )
 
-        if st.button("Rebuild leaderboards", type="primary"):
+        if st.button("Rebuild leaderboards", type="primary", width="stretch"):
             total = runtime.active().run(leaderboards.rebuild)
             st.success(f"Ranked {total} players.")
 
-    with right, st.form("revoke"):
+        st.divider()
         st.markdown("#### Force a player to re-authenticate")
-        user_id = st.number_input("User id", min_value=1, step=1)
 
-        if st.form_submit_button("Revoke sessions and permission cache"):
-            components.report(
-                runtime.active().run(
-                    lambda ctx: administration.revoke_sessions(
-                        ctx, actor_user_id=actor, user_id=int(user_id)
-                    )
-                ),
-                "Revoked.",
-            )
+        with st.form("revoke", border=False):
+            user_id = st.number_input("User id", min_value=1, step=1)
+
+            if st.form_submit_button(
+                "Revoke sessions and permission cache", width="stretch"
+            ):
+                components.report(
+                    runtime.active().run(
+                        lambda ctx: administration.revoke_sessions(
+                            ctx, actor_user_id=actor, user_id=int(user_id)
+                        )
+                    ),
+                    "Revoked.",
+                )

@@ -55,7 +55,6 @@ _DEMONS = {
 class Listing:
     levels: list[Level]
     creators: dict[int, User]
-    total: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,12 +65,10 @@ class Queues:
     users: dict[int, User]
 
 
-def _search(
-    query: str, order: LevelOrder, rated: str, creator: str, page: int
-) -> LevelSearch:
+def _search(query: str, order: LevelOrder, rated: str, creator: str) -> LevelSearch:
     search = LevelSearch(
         order=order,
-        page=page,
+        page=0,
         size=components.PAGE_SIZE,
         include_all_visibilities=True,
         rated=rated == "Rated only",
@@ -96,11 +93,7 @@ async def _listing(ctx: AbstractContext, search: LevelSearch) -> Listing:
         list({level.user_id for level in found})
     )
 
-    return Listing(
-        levels=found,
-        creators={user.id: user for user in creators},
-        total=await ctx.levels.count(search),
-    )
+    return Listing(levels=found, creators={user.id: user for user in creators})
 
 
 async def _queues(ctx: AbstractContext) -> Queues:
@@ -237,68 +230,78 @@ async def _dismiss_many(
     ]
 
 
-def _bulk(ids: list[int]) -> None:
-    operator = current()
+async def _rate_suggested(
+    ctx: AbstractContext, actor: int, chosen: list[LevelSuggestion]
+) -> list[ServiceError.OnSuccess[object]]:
+    return [
+        await moderation.rate_level(
+            ctx,
+            actor_user_id=actor,
+            level_id=entry.level_id,
+            stars=entry.stars or 0,
+            feature=entry.feature,
+            demon=entry.demon_difficulty,
+        )
+        for entry in chosen
+    ]
 
-    if operator is None:
-        return
 
-    actor = operator.user_id
-    st.markdown(f"#### Bulk actions · {len(ids)} selected")
+def _bulk(ids: list[int], actor: int) -> None:
+    st.markdown("#### Bulk actions")
+    components.badges([f"{len(ids)} selected"], "blue")
     rate_tab, visibility_tab, timely_tab, danger_tab = st.tabs(
         ["Rate", "Visibility & lock", "Timely", "Delete"]
     )
 
-    with rate_tab, st.form("bulk_rate"):
+    with rate_tab, st.form("bulk_rate", border=False):
         stars = st.slider("Stars (0 removes the rating)", 0, 10, 5)
-        feature = st.selectbox("Feature tier", list(_FEATURES))
-        demon = st.selectbox("Demon tier (stars 10)", list(_DEMONS))
+        left, right = st.columns(2)
 
-        if st.form_submit_button("Rate selected", type="primary"):
+        with left:
+            feature = components.choose("Feature tier", list(_FEATURES), lambda f: f)
+
+        with right:
+            demon = components.choose(
+                "Demon tier (stars 10)", list(_DEMONS), lambda d: d
+            )
+
+        if st.form_submit_button("Rate selected", type="primary", width="stretch"):
             outcomes = runtime.active().run(
                 lambda ctx: _rate_many(
-                    ctx,
-                    actor,
-                    ids,
-                    stars,
-                    _FEATURES[feature or "Keep"],
-                    _DEMONS[demon or "Keep"],
+                    ctx, actor, ids, stars, _FEATURES[feature], _DEMONS[demon]
                 )
             )
             components.report_bulk(outcomes, "Rated")
 
     with visibility_tab:
-        left, right = st.columns(2)
-
-        with left, st.form("bulk_visibility"):
+        with st.form("bulk_visibility", border=False):
             visibility = components.choose(
                 "Visibility", list(Visibility), lambda v: labels.VISIBILITY[v]
             )
 
-            if st.form_submit_button("Apply visibility", type="primary"):
+            if st.form_submit_button(
+                "Apply visibility", type="primary", width="stretch"
+            ):
                 outcomes = runtime.active().run(
                     lambda ctx: _visibility_many(ctx, actor, ids, visibility)
                 )
                 components.report_bulk(outcomes, "Updated")
 
-        with right:
-            lock_left, lock_right = st.columns(2)
+        left, right = st.columns(2)
 
-            if lock_left.button("Lock updates", key="bulk_lock"):
-                components.report_bulk(
-                    runtime.active().run(lambda ctx: _lock_many(ctx, actor, ids, True)),
-                    "Locked",
-                )
+        if left.button("Lock updates", key="bulk_lock", width="stretch"):
+            components.report_bulk(
+                runtime.active().run(lambda ctx: _lock_many(ctx, actor, ids, True)),
+                "Locked",
+            )
 
-            if lock_right.button("Unlock updates", key="bulk_unlock"):
-                components.report_bulk(
-                    runtime.active().run(
-                        lambda ctx: _lock_many(ctx, actor, ids, False)
-                    ),
-                    "Unlocked",
-                )
+        if right.button("Unlock updates", key="bulk_unlock", width="stretch"):
+            components.report_bulk(
+                runtime.active().run(lambda ctx: _lock_many(ctx, actor, ids, False)),
+                "Unlocked",
+            )
 
-    with timely_tab, st.form("bulk_timely"):
+    with timely_tab, st.form("bulk_timely", border=False):
         timely_type = components.choose(
             "Queue as", list(TimelyType), lambda t: labels.TIMELY[t]
         )
@@ -307,7 +310,7 @@ def _bulk(ids: list[int]) -> None:
             unsafe_allow_html=True,
         )
 
-        if st.form_submit_button("Schedule selected", type="primary"):
+        if st.form_submit_button("Schedule selected", type="primary", width="stretch"):
             outcomes = runtime.active().run(
                 lambda ctx: _schedule_many(ctx, actor, ids, timely_type)
             )
@@ -329,172 +332,187 @@ def _bulk(ids: list[int]) -> None:
             st.rerun()
 
 
+def _coin_state(level: Level) -> str:
+    return "verified" if level.coins_verified else "unverified"
+
+
 def _detail(level: Level, creator: User | None) -> None:
-    st.markdown(
-        theme.card(
-            f"{level.name} #{level.id}",
-            [
-                ("Creator", creator.username if creator else f"#{level.user_id}"),
-                ("Description", level.description or "—"),
-                ("Version", str(level.version)),
-                (
-                    "Song",
-                    f"custom {level.custom_song_id}"
-                    if level.custom_song_id
-                    else f"official {level.official_song_id}",
-                ),
-                ("Objects", str(level.object_count)),
-                (
-                    "Coins",
-                    f"{level.coins} "
-                    f"({'verified' if level.coins_verified else 'unverified'})",
-                ),
-                ("Requested stars", str(level.requested_stars)),
-                (
-                    "Editor time",
-                    f"{level.editor_seconds // 3600}h "
-                    f"{level.editor_seconds % 3600 // 60}m",
-                ),
-                ("Two player", "yes" if level.two_player else "no"),
-                ("Copyable", "yes" if level.copyable else "no"),
-                ("Client", f"{level.game_version} / {level.binary_version}"),
-                ("Updated", components.stamp(level.updated_at)),
-            ],
-        ),
-        unsafe_allow_html=True,
+    with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
+        st.markdown(f"#### {level.name}")
+        st.badge(f"#{level.id}", color="gray")
+
+    tags = [
+        labels.DIFFICULTY[int(level.difficulty)],
+        labels.VISIBILITY[level.visibility],
+    ]
+
+    if level.stars:
+        tags.append(f"{level.stars} stars")
+
+    if level.rating:
+        tags.append(labels.RATING[int(level.rating)])
+
+    if level.feature_order:
+        tags.append("featured")
+
+    if level.update_locked:
+        tags.append("locked")
+
+    components.badges(tags)
+    grid = st.columns(4)
+    components.metric(grid[0], "Downloads", level.downloads)
+    components.metric(grid[1], "Likes", level.likes)
+    components.metric(grid[2], "Objects", level.object_count)
+    components.metric(grid[3], "Version", level.version)
+    components.facts(
+        [
+            ("Creator", creator.username if creator else f"#{level.user_id}"),
+            ("Description", level.description or "—"),
+            (
+                "Song",
+                f"custom {level.custom_song_id}"
+                if level.custom_song_id
+                else f"official {level.official_song_id}",
+            ),
+            ("Length", labels.LENGTH[int(level.length)]),
+            ("Coins", f"{level.coins} ({_coin_state(level)})"),
+            ("Requested stars", str(level.requested_stars)),
+            (
+                "Editor time",
+                f"{level.editor_seconds // 3600}h {level.editor_seconds % 3600 // 60}m",
+            ),
+            ("Two player", "yes" if level.two_player else "no"),
+            ("Copyable", "yes" if level.copyable else "no"),
+            ("Client", f"{level.game_version} / {level.binary_version}"),
+            ("Uploaded", components.stamp(level.uploaded_at)),
+            ("Updated", components.stamp(level.updated_at)),
+        ]
     )
 
 
-def _queues_view() -> None:
+def _sent_queue(queues: Queues, actor: int) -> None:
+    st.markdown("#### Sent for rating")
+    frame = pd.DataFrame(
+        [
+            {
+                "level": queues.levels[entry.level_id].name
+                if entry.level_id in queues.levels
+                else f"#{entry.level_id}",
+                "level id": entry.level_id,
+                "sent by": queues.users[entry.user_id].username
+                if entry.user_id in queues.users
+                else f"#{entry.user_id}",
+                "stars": entry.stars,
+                "feature": entry.feature.name.title()
+                if entry.feature is not None
+                else "",
+                "when": components.stamp(entry.created_at),
+            }
+            for entry in queues.suggestions
+        ]
+    )
+    selected = components.table(frame, "sent_table")
+    chosen = [queues.suggestions[index] for index in selected]
+
+    if not chosen:
+        return
+
+    left, right = st.columns(2)
+
+    if left.button(
+        "Rate as suggested", type="primary", key="sent_rate", width="stretch"
+    ):
+        components.report_bulk(
+            runtime.active().run(lambda ctx: _rate_suggested(ctx, actor, chosen)),
+            "Rated",
+        )
+        st.rerun()
+
+    if right.button("Dismiss", key="sent_dismiss", width="stretch"):
+        components.report_bulk(
+            runtime.active().run(
+                lambda ctx: _dismiss_many(
+                    ctx, actor, [entry.level_id for entry in chosen]
+                )
+            ),
+            "Dismissed",
+        )
+        st.rerun()
+
+
+def _reported_queue(queues: Queues, actor: int) -> None:
+    st.markdown("#### Reported")
+    frame = pd.DataFrame(
+        [
+            {
+                "level": queues.levels[level_id].name
+                if level_id in queues.levels
+                else f"#{level_id}",
+                "level id": level_id,
+                "creator": queues.users[queues.levels[level_id].user_id].username
+                if level_id in queues.levels
+                and queues.levels[level_id].user_id in queues.users
+                else "",
+                "reports": reports,
+            }
+            for level_id, reports in queues.reported
+        ]
+    )
+    selected = components.table(frame, "reported_table")
+    chosen_ids = [queues.reported[index][0] for index in selected]
+
+    if not chosen_ids:
+        return
+
+    left, right = st.columns(2)
+
+    if left.button(
+        "Resolve reports", type="primary", key="reports_resolve", width="stretch"
+    ):
+        components.report_bulk(
+            runtime.active().run(lambda ctx: _resolve_many(ctx, actor, chosen_ids)),
+            "Resolved",
+        )
+        st.rerun()
+
+    with right:
+        if components.confirm("Delete reported levels", "reports_delete"):
+            components.report_bulk(
+                runtime.active().run(lambda ctx: _delete_many(ctx, actor, chosen_ids)),
+                "Deleted",
+            )
+            st.rerun()
+
+
+def page() -> None:
+    components.header("Levels", "Search, rate, feature, schedule and moderate levels.")
     operator = current()
 
     if operator is None:
         return
 
     actor = operator.user_id
-    queues = runtime.active().run(_queues)
-    sent_tab, reported_tab = st.tabs(
-        [f"Sent ({len(queues.suggestions)})", f"Reported ({len(queues.reported)})"]
-    )
-
-    with sent_tab:
-        frame = pd.DataFrame(
-            [
-                {
-                    "level": queues.levels[entry.level_id].name
-                    if entry.level_id in queues.levels
-                    else f"#{entry.level_id}",
-                    "level id": entry.level_id,
-                    "sent by": queues.users[entry.user_id].username
-                    if entry.user_id in queues.users
-                    else f"#{entry.user_id}",
-                    "stars": entry.stars,
-                    "feature": entry.feature.name.title()
-                    if entry.feature is not None
-                    else "",
-                    "when": components.stamp(entry.created_at),
-                }
-                for entry in queues.suggestions
-            ]
-        )
-        selected = components.table(frame, "sent_table")
-        chosen = [queues.suggestions[index] for index in selected]
-
-        if chosen:
-            left, right = st.columns(2)
-
-            if left.button("Rate as suggested", type="primary", key="sent_rate"):
-                outcomes = runtime.active().run(
-                    lambda ctx: _rate_suggested(ctx, actor, chosen)
-                )
-                components.report_bulk(outcomes, "Rated")
-                st.rerun()
-
-            if right.button("Dismiss", key="sent_dismiss"):
-                components.report_bulk(
-                    runtime.active().run(
-                        lambda ctx: _dismiss_many(
-                            ctx, actor, [entry.level_id for entry in chosen]
-                        )
-                    ),
-                    "Dismissed",
-                )
-                st.rerun()
-
-    with reported_tab:
-        frame = pd.DataFrame(
-            [
-                {
-                    "level": queues.levels[level_id].name
-                    if level_id in queues.levels
-                    else f"#{level_id}",
-                    "level id": level_id,
-                    "creator": queues.users[queues.levels[level_id].user_id].username
-                    if level_id in queues.levels
-                    and queues.levels[level_id].user_id in queues.users
-                    else "",
-                    "reports": reports,
-                }
-                for level_id, reports in queues.reported
-            ]
-        )
-        selected = components.table(frame, "reported_table")
-        chosen_ids = [queues.reported[index][0] for index in selected]
-
-        if chosen_ids:
-            left, right = st.columns(2)
-
-            if left.button("Resolve reports", type="primary", key="reports_resolve"):
-                components.report_bulk(
-                    runtime.active().run(
-                        lambda ctx: _resolve_many(ctx, actor, chosen_ids)
-                    ),
-                    "Resolved",
-                )
-                st.rerun()
-
-            with right:
-                if components.confirm("Delete reported levels", "reports_delete"):
-                    components.report_bulk(
-                        runtime.active().run(
-                            lambda ctx: _delete_many(ctx, actor, chosen_ids)
-                        ),
-                        "Deleted",
-                    )
-                    st.rerun()
-
-
-async def _rate_suggested(
-    ctx: AbstractContext, actor: int, chosen: list[LevelSuggestion]
-) -> list[ServiceError.OnSuccess[object]]:
-    return [
-        await moderation.rate_level(
-            ctx,
-            actor_user_id=actor,
-            level_id=entry.level_id,
-            stars=entry.stars or 0,
-            feature=entry.feature,
-            demon=entry.demon_difficulty,
-        )
-        for entry in chosen
-    ]
-
-
-def page() -> None:
-    components.header("Levels", "Search, rate, feature, schedule and moderate levels.")
     browse_tab, queue_tab = st.tabs(["Browse", "Queues"])
 
     with browse_tab:
-        first, second, third, fourth = st.columns([3, 1, 1, 1])
-        query = first.text_input("Name prefix or level id", placeholder="Saturation")
-        order_label = second.selectbox("Order", list(_ORDERS))
-        rated = third.selectbox("Rating", ["All", "Rated only", "Unrated only"])
-        creator = fourth.text_input("Creator id")
-        search = _search(
-            query, _ORDERS[order_label or "Recent"], rated or "All", creator, 0
-        )
-        total = runtime.active().run(lambda ctx: ctx.levels.count(search))
-        page_index = components.paginator("levels", total)
+        with components.toolbar():
+            query = st.text_input("Name prefix or level id", placeholder="Saturation")
+            order = _ORDERS[
+                components.choose(
+                    "Order", list(_ORDERS), lambda label: label, key="lv_order"
+                )
+            ]
+            rated = components.choose(
+                "Rating",
+                ["All", "Rated only", "Unrated only"],
+                lambda r: r,
+                key="lv_rated",
+            )
+            creator = st.text_input("Creator id")
+            search = _search(query, order, rated, creator)
+            total = runtime.active().run(lambda ctx: ctx.levels.count(search))
+            page_index = components.paginator("levels", total)
+
         listing = runtime.active().run(
             lambda ctx: _listing(ctx, replace(search, page=page_index))
         )
@@ -503,11 +521,30 @@ def page() -> None:
             listing.levels[index] for index in selected if index < len(listing.levels)
         ]
 
-        if len(chosen) == 1:
-            _detail(chosen[0], listing.creators.get(chosen[0].user_id))
+        if not chosen:
+            st.markdown(
+                theme.muted("Select one row for details, several for bulk actions."),
+                unsafe_allow_html=True,
+            )
+        else:
+            detail_column, bulk_column = st.columns([3, 2], border=True)
 
-        if chosen:
-            _bulk([level.id for level in chosen])
+            with detail_column:
+                if len(chosen) == 1:
+                    _detail(chosen[0], listing.creators.get(chosen[0].user_id))
+                else:
+                    st.markdown("#### Selection")
+                    components.badges([level.name for level in chosen[:40]], "gray")
+
+            with bulk_column:
+                _bulk([level.id for level in chosen], actor)
 
     with queue_tab:
-        _queues_view()
+        queues = runtime.active().run(_queues)
+        sent_column, reported_column = st.columns(2, border=True)
+
+        with sent_column:
+            _sent_queue(queues, actor)
+
+        with reported_column:
+            _reported_queue(queues, actor)

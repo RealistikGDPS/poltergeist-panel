@@ -22,14 +22,12 @@ from panel.auth import current
 class EventListing:
     events: list[ModAction]
     users: dict[int, User]
-    total: int
 
 
 @dataclass(frozen=True, slots=True)
 class BanListing:
     bans: list[UserBan]
     users: dict[int, User]
-    total: int
 
 
 async def _events(
@@ -48,13 +46,7 @@ async def _events(
     )
     users = await ctx.users.find_many_by_ids(list({event.user_id for event in events}))
 
-    return EventListing(
-        events=events,
-        users={user.id: user for user in users},
-        total=await ctx.mod_actions.count_recent(
-            user_id=actor, target_type=target_type, target_id=target_id
-        ),
-    )
+    return EventListing(events=events, users={user.id: user for user in users})
 
 
 async def _bans(ctx: AbstractContext, page: int) -> BanListing:
@@ -64,11 +56,7 @@ async def _bans(ctx: AbstractContext, page: int) -> BanListing:
     }
     users = await ctx.users.find_many_by_ids(list(ids))
 
-    return BanListing(
-        bans=bans,
-        users={user.id: user for user in users},
-        total=await ctx.bans.count_all_active(),
-    )
+    return BanListing(bans=bans, users={user.id: user for user in users})
 
 
 async def _unban_many(
@@ -83,22 +71,24 @@ async def _unban_many(
 
 
 def _event_log() -> None:
-    first, second, third = st.columns(3)
-    actor_text = first.text_input("Actor id")
-    target_label = second.selectbox(
-        "Target type", ["Any", *[t.value for t in ModTarget]]
-    )
-    target_text = third.text_input("Target id")
-    actor = int(actor_text) if actor_text.strip().isdecimal() else None
-    target_type = None if target_label in (None, "Any") else ModTarget(target_label)
-    target_id = int(target_text) if target_text.strip().isdecimal() else None
+    st.markdown("#### Event log")
 
-    total = runtime.active().run(
-        lambda ctx: ctx.mod_actions.count_recent(
-            user_id=actor, target_type=target_type, target_id=target_id
+    with components.toolbar():
+        actor_text = st.text_input("Actor id")
+        target_label = components.choose(
+            "Target type", ["Any", *[t.value for t in ModTarget]], lambda t: t
         )
-    )
-    page_index = components.paginator("events", total)
+        target_text = st.text_input("Target id")
+        actor = int(actor_text) if actor_text.strip().isdecimal() else None
+        target_type = None if target_label == "Any" else ModTarget(target_label)
+        target_id = int(target_text) if target_text.strip().isdecimal() else None
+        total = runtime.active().run(
+            lambda ctx: ctx.mod_actions.count_recent(
+                user_id=actor, target_type=target_type, target_id=target_id
+            )
+        )
+        page_index = components.paginator("events", total)
+
     listing = runtime.active().run(
         lambda ctx: _events(ctx, actor, target_type, target_id, page_index)
     )
@@ -119,15 +109,13 @@ def _event_log() -> None:
     st.dataframe(frame, hide_index=True, width="stretch")
 
 
-def _bans_view() -> None:
-    operator = current()
+def _bans_view(actor: int) -> None:
+    st.markdown("#### Active bans")
 
-    if operator is None:
-        return
+    with components.toolbar():
+        total = runtime.active().run(lambda ctx: ctx.bans.count_all_active())
+        page_index = components.paginator("bans", total)
 
-    actor = operator.user_id
-    total = runtime.active().run(lambda ctx: ctx.bans.count_all_active())
-    page_index = components.paginator("bans", total)
     listing = runtime.active().run(lambda ctx: _bans(ctx, page_index))
     frame = pd.DataFrame(
         [
@@ -152,25 +140,25 @@ def _bans_view() -> None:
     selected = components.table(frame, "bans_table")
     chosen = [listing.bans[index] for index in selected]
 
-    if chosen and st.button("Lift selected bans", type="primary"):
+    if chosen and st.button("Lift selected bans", type="primary", width="stretch"):
         components.report_bulk(
             runtime.active().run(lambda ctx: _unban_many(ctx, actor, chosen)), "Lifted"
         )
         st.rerun()
 
+
+def _ban_form(actor: int) -> None:
     st.markdown("#### Ban by id")
 
-    with st.form("ban_by_id"):
-        first, second, third = st.columns(3)
-        user_id = first.number_input("User id", min_value=1, step=1)
-        with second:
-            ban_type = components.choose("Type", list(BanType), lambda b: labels.BAN[b])
-        days = third.number_input(
+    with st.form("ban_by_id", border=False):
+        user_id = st.number_input("User id", min_value=1, step=1)
+        ban_type = components.choose("Type", list(BanType), lambda b: labels.BAN[b])
+        days = st.number_input(
             "Days (0 = permanent)", min_value=0, max_value=3650, value=7
         )
         reason = st.text_input("Reason", max_chars=255)
 
-        if st.form_submit_button("Ban", type="primary"):
+        if st.form_submit_button("Ban", type="primary", width="stretch"):
             components.report(
                 runtime.active().run(
                     lambda ctx: moderation.ban(
@@ -188,10 +176,18 @@ def _bans_view() -> None:
 
 def page() -> None:
     components.header("Moderation", "Every action leaves a trace here.")
-    log_tab, bans_tab = st.tabs(["Event log", "Active bans"])
+    operator = current()
 
-    with log_tab:
+    if operator is None:
+        return
+
+    with st.container(border=True):
         _event_log()
 
-    with bans_tab:
-        _bans_view()
+    bans_column, form_column = st.columns([3, 1], border=True)
+
+    with bans_column:
+        _bans_view(operator.user_id)
+
+    with form_column:
+        _ban_form(operator.user_id)

@@ -20,22 +20,27 @@ from panel.pages import users
 logging.configure_from_yaml()
 
 
-def _sidebar(operator: auth.Operator) -> None:
-    with st.sidebar:
-        st.markdown('<div class="pg-brand">POLTERGEIST</div>', unsafe_allow_html=True)
+def _header(operator: auth.Operator) -> None:
+    with st.container(
+        border=True,
+        horizontal=True,
+        horizontal_alignment="distribute",
+        vertical_alignment="center",
+    ):
         st.markdown(
-            f'<div class="pg-sub">{settings.APP_SERVER_NAME} control room</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f'<div class="pg-user">Signed in as <b>{operator.username}</b> '
-            f"<span class='pg-muted'>#{operator.user_id}</span></div>",
+            f'<span class="pg-brand">POLTERGEIST</span> '
+            f'<span class="pg-sub">{settings.APP_SERVER_NAME} control room</span>',
             unsafe_allow_html=True,
         )
 
-        if st.button("Sign out", width="stretch"):
-            auth.sign_out()
-            st.rerun()
+        with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+            st.badge(
+                f"{operator.username} #{operator.user_id}", icon="👤", color="violet"
+            )
+
+            if st.button("Sign out"):
+                auth.sign_out()
+                st.rerun()
 
 
 def main() -> None:
@@ -43,27 +48,40 @@ def main() -> None:
         page_title="Poltergeist control room",
         page_icon="👻",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
     active = runtime.active()
     operator = auth.require(active)
     theme.apply()
-    _sidebar(operator)
+    _header(operator)
 
-    pages = [
-        st.Page(dashboard.page, title="Dashboard", icon="📊", default=True),
-        st.Page(users.page, title="Users", icon="👤", url_path="users"),
-        st.Page(levels.page, title="Levels", icon="🧱", url_path="levels"),
-        st.Page(comments.page, title="Comments", icon="💬", url_path="comments"),
-        st.Page(moderation.page, title="Moderation", icon="🛡️", url_path="moderation"),
-        st.Page(timely.page, title="Timely", icon="📅", url_path="timely"),
-        st.Page(songs.page, title="Songs", icon="🎵", url_path="songs"),
-        st.Page(rewards.page, title="Rewards", icon="🎁", url_path="rewards"),
-        st.Page(packs.page, title="Packs", icon="📦", url_path="packs"),
-        st.Page(roles.page, title="Roles", icon="🔑", url_path="roles"),
-        st.Page(system.page, title="System", icon="⚙️", url_path="system"),
-    ]
-    st.navigation(pages, position="sidebar").run()
+    pages = {
+        "": [
+            st.Page(dashboard.page, title="Dashboard", icon="📊", default=True),
+            st.Page(users.page, title="Users", icon="👤", url_path="users"),
+            st.Page(levels.page, title="Levels", icon="🧱", url_path="levels"),
+            st.Page(comments.page, title="Comments", icon="💬", url_path="comments"),
+        ],
+        "Moderate": [
+            st.Page(
+                moderation.page,
+                title="Event log & bans",
+                icon="🛡️",
+                url_path="moderation",
+            ),
+            st.Page(timely.page, title="Timely", icon="📅", url_path="timely"),
+        ],
+        "Content": [
+            st.Page(songs.page, title="Songs", icon="🎵", url_path="songs"),
+            st.Page(rewards.page, title="Rewards", icon="🎁", url_path="rewards"),
+            st.Page(packs.page, title="Packs", icon="📦", url_path="packs"),
+        ],
+        "Server": [
+            st.Page(roles.page, title="Roles", icon="🔑", url_path="roles"),
+            st.Page(system.page, title="System", icon="⚙️", url_path="system"),
+        ],
+    }
+    st.navigation(pages, position="top").run()
 
 
 main()

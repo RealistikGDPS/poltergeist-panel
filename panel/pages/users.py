@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from datetime import timedelta
 
 import pandas as pd
 import streamlit as st
@@ -16,7 +15,6 @@ from app.services import administration
 from app.services import auth
 from app.services import moderation
 from app.services import roles
-from app.utilities import clock
 from panel import components
 from panel import labels
 from panel import runtime
@@ -37,7 +35,6 @@ class Listing:
     stats: dict[int, UserStats]
     roles: dict[int, list[Role]]
     bans: dict[int, list[UserBan]]
-    total: int
     all_roles: list[Role]
 
 
@@ -66,7 +63,6 @@ async def _listing(ctx: AbstractContext, query: str, order: str, page: int) -> L
         stats=stats,
         roles={user.id: await ctx.roles.list_by_user(user.id) for user in users},
         bans={user.id: await ctx.bans.list_active(user.id) for user in users},
-        total=await ctx.users.count_page(query=query),
         all_roles=await ctx.roles.list_all(),
     )
 
@@ -112,70 +108,6 @@ def _frame(listing: Listing) -> pd.DataFrame:
         )
 
     return pd.DataFrame(rows)
-
-
-def _bulk(selected: list[User], all_roles: list[Role]) -> None:
-    operator = current()
-
-    if operator is None:
-        return
-
-    actor = operator.user_id
-    ids = [user.id for user in selected]
-    st.markdown(f"#### Bulk actions · {len(selected)} selected")
-    ban_tab, unban_tab, role_tab, session_tab = st.tabs(
-        ["Ban", "Unban", "Roles", "Sessions"]
-    )
-
-    with ban_tab, st.form("bulk_ban"):
-        ban_type = components.choose("Type", list(BanType), lambda b: labels.BAN[b])
-        permanent = st.checkbox("Permanent", value=False)
-        days = st.number_input("Days", min_value=1, max_value=3650, value=7)
-        reason = st.text_input("Reason", max_chars=255)
-
-        if st.form_submit_button("Ban selected", type="primary"):
-            banned = runtime.active().run(
-                lambda ctx: _ban_many(
-                    ctx, actor, ids, ban_type, None if permanent else int(days), reason
-                )
-            )
-            components.report_bulk(banned, "Banned")
-
-    with unban_tab, st.form("bulk_unban"):
-        lift_type = components.choose(
-            "Type", list(BanType), lambda b: labels.BAN[b], key="unban_type"
-        )
-
-        if st.form_submit_button("Lift selected", type="primary"):
-            lifted = runtime.active().run(
-                lambda ctx: _unban_many(ctx, actor, ids, lift_type)
-            )
-            components.report_bulk(lifted, "Unbanned")
-
-    with role_tab, st.form("bulk_roles"):
-        role = st.selectbox("Role", all_roles, format_func=lambda r: r.name)
-        grant = st.radio("Action", ["Assign", "Revoke"], horizontal=True)
-
-        if (
-            st.form_submit_button("Apply to selected", type="primary")
-            and role is not None
-        ):
-            outcomes = runtime.active().run(
-                lambda ctx: _roles_many(ctx, actor, ids, role.name, grant == "Assign")
-            )
-            components.report_bulk(
-                outcomes, grant + "ed" if grant == "Revoke" else "Assigned"
-            )
-
-    with session_tab:
-        st.markdown(
-            theme.muted("Forces the selected accounts to verify their password again."),
-            unsafe_allow_html=True,
-        )
-
-        if st.button("Revoke sessions", key="bulk_sessions"):
-            outcomes = runtime.active().run(lambda ctx: _revoke_many(ctx, actor, ids))
-            components.report_bulk(outcomes, "Revoked")
 
 
 async def _ban_many(
@@ -248,79 +180,121 @@ async def _revoke_many(
     ]
 
 
-def _detail_view(user_id: int) -> None:
-    operator = current()
+def _bulk(selected: list[User], all_roles: list[Role], actor: int) -> None:
+    ids = [user.id for user in selected]
+    st.markdown("#### Bulk actions")
+    components.badges([f"{len(selected)} selected"], "blue")
+    ban_tab, unban_tab, role_tab, session_tab = st.tabs(
+        ["Ban", "Unban", "Roles", "Sessions"]
+    )
+
+    with ban_tab, st.form("bulk_ban", border=False):
+        ban_type = components.choose("Type", list(BanType), lambda b: labels.BAN[b])
+        left, right = st.columns(2)
+        permanent = left.checkbox("Permanent", value=False)
+        days = right.number_input("Days", min_value=1, max_value=3650, value=7)
+        reason = st.text_input("Reason", max_chars=255)
+
+        if st.form_submit_button("Ban selected", type="primary", width="stretch"):
+            banned = runtime.active().run(
+                lambda ctx: _ban_many(
+                    ctx, actor, ids, ban_type, None if permanent else int(days), reason
+                )
+            )
+            components.report_bulk(banned, "Banned")
+
+    with unban_tab, st.form("bulk_unban", border=False):
+        lift_type = components.choose(
+            "Type", list(BanType), lambda b: labels.BAN[b], key="unban_type"
+        )
+
+        if st.form_submit_button("Lift selected", type="primary", width="stretch"):
+            lifted = runtime.active().run(
+                lambda ctx: _unban_many(ctx, actor, ids, lift_type)
+            )
+            components.report_bulk(lifted, "Unbanned")
+
+    with role_tab, st.form("bulk_roles", border=False):
+        role = components.choose("Role", all_roles, lambda r: r.name)
+        grant = st.radio("Action", ["Assign", "Revoke"], horizontal=True)
+
+        if st.form_submit_button("Apply to selected", type="primary", width="stretch"):
+            changed = runtime.active().run(
+                lambda ctx: _roles_many(ctx, actor, ids, role.name, grant == "Assign")
+            )
+            components.report_bulk(
+                changed, "Revoked" if grant == "Revoke" else "Assigned"
+            )
+
+    with session_tab:
+        st.markdown(
+            theme.muted("Forces the selected accounts to verify their password again."),
+            unsafe_allow_html=True,
+        )
+
+        if st.button("Revoke sessions", key="bulk_sessions", width="stretch"):
+            revoked = runtime.active().run(lambda ctx: _revoke_many(ctx, actor, ids))
+            components.report_bulk(revoked, "Revoked")
+
+
+def _detail_view(user_id: int, actor: int) -> None:
     detail = runtime.active().run(lambda ctx: _detail(ctx, user_id))
 
-    if detail is None or operator is None:
+    if detail is None:
         st.warning("That account no longer exists.")
 
         return
 
     user = detail.user
     stats = detail.stats
-    actor = operator.user_id
-    st.markdown(
-        f"#### {user.username} <span class='pg-muted'>#{user.id}</span>",
-        unsafe_allow_html=True,
-    )
-    flags = [role.name for role in detail.roles]
-    st.markdown(
-        components.pills(flags)
-        + components.pills([f"{ban.type.value} ban" for ban in detail.bans], "bad")
-        + ("" if detail.has_password else theme.pill("legacy password", "warn")),
-        unsafe_allow_html=True,
-    )
-    left, middle, right = st.columns(3)
+
+    with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
+        st.markdown(f"#### {user.username}")
+        st.badge(f"#{user.id}", color="gray")
+
+    components.badges([role.name for role in detail.roles], "violet")
+    components.badges([f"{ban.type.value} ban" for ban in detail.bans], "red")
+
+    if not detail.has_password:
+        components.badges(["legacy password: set one below"], "orange")
+
+    grid = st.columns(4)
+    components.metric(grid[0], "Stars", stats.stars if stats else 0)
+    components.metric(grid[1], "Moons", stats.moons if stats else 0)
+    components.metric(grid[2], "Demons", stats.demons if stats else 0)
+    components.metric(grid[3], "Diamonds", stats.diamonds if stats else 0)
+    grid = st.columns(4)
+    components.metric(grid[0], "Secret coins", stats.secret_coins if stats else 0)
+    components.metric(grid[1], "User coins", stats.user_coins if stats else 0)
+    components.metric(grid[2], "Creator points", stats.creator_points if stats else 0)
+    components.metric(grid[3], "Levels", detail.levels)
+
+    left, right = st.columns(2)
 
     with left:
-        st.markdown(
-            theme.card(
-                "Account",
-                [
-                    ("Email", user.email),
-                    ("Registered", components.stamp(user.registered_at)),
-                    ("Last seen", components.age(user.last_seen_at)),
-                    ("Levels", str(detail.levels)),
-                    ("Messages", user.message_privacy.name.title()),
-                    ("Requests", user.friend_request_privacy.name.title()),
-                    ("History", user.comment_history_privacy.name.title()),
-                ],
-            ),
-            unsafe_allow_html=True,
-        )
-
-    with middle:
-        st.markdown(
-            theme.card(
-                "Progress",
-                [
-                    ("Stars", str(stats.stars if stats else 0)),
-                    ("Moons", str(stats.moons if stats else 0)),
-                    ("Demons", str(stats.demons if stats else 0)),
-                    ("Diamonds", str(stats.diamonds if stats else 0)),
-                    ("Secret coins", str(stats.secret_coins if stats else 0)),
-                    ("User coins", str(stats.user_coins if stats else 0)),
-                    ("Creator points", str(stats.creator_points if stats else 0)),
-                ],
-            ),
-            unsafe_allow_html=True,
+        st.markdown("**Account**")
+        components.facts(
+            [
+                ("Email", user.email),
+                ("Registered", components.stamp(user.registered_at)),
+                ("Last seen", components.age(user.last_seen_at)),
+                ("Messages", user.message_privacy.name.title()),
+                ("Requests", user.friend_request_privacy.name.title()),
+                ("History", user.comment_history_privacy.name.title()),
+            ]
         )
 
     with right:
-        st.markdown(
-            theme.card(
-                "Devices",
-                [
-                    (
-                        device.platform.name.title(),
-                        f"{device.udid[:18]}… {components.age(device.last_seen_at)}",
-                    )
-                    for device in detail.devices[:6]
-                ]
-                or [("None", "no device has logged in")],
-            ),
-            unsafe_allow_html=True,
+        st.markdown("**Devices**")
+        components.facts(
+            [
+                (
+                    device.platform.name.title(),
+                    f"{device.udid[:18]}… seen {components.age(device.last_seen_at)}",
+                )
+                for device in detail.devices[:6]
+            ]
+            or [("None", "no device has logged in")]
         )
 
     for ban in detail.bans:
@@ -335,7 +309,7 @@ def _detail_view(user_id: int) -> None:
         ["Password", "Rename", "Comment colour"]
     )
 
-    with password_tab, st.form("set_password"):
+    with password_tab, st.form("set_password", border=False):
         password = st.text_input("New password", type="password")
 
         if st.form_submit_button("Set password", type="primary"):
@@ -346,7 +320,7 @@ def _detail_view(user_id: int) -> None:
                 "Password set; the player must log in again.",
             )
 
-    with rename_tab, st.form("rename"):
+    with rename_tab, st.form("rename", border=False):
         username = st.text_input("New username", value=user.username, max_chars=20)
 
         if st.form_submit_button("Rename", type="primary"):
@@ -360,7 +334,7 @@ def _detail_view(user_id: int) -> None:
             )
             st.rerun()
 
-    with colour_tab, st.form("colour"):
+    with colour_tab, st.form("colour", border=False):
         packed = user.comment_colour or 0xFFFFFF
         chosen = st.color_picker("Colour", value=f"#{packed:06x}")
         clear = st.checkbox("Clear the colour instead")
@@ -379,32 +353,43 @@ def _detail_view(user_id: int) -> None:
 
 def page() -> None:
     components.header("Users", "Find players, then act on one or many.")
-    left, middle, right = st.columns([3, 1, 1])
-    query = left.text_input("Search by name, email or id", placeholder="RealistikDash")
-    order_label = middle.selectbox("Order", list(_ORDERS))
-    order = _ORDERS[order_label or "Newest"]
+    operator = current()
 
-    with right:
-        st.write("")
-        st.write("")
+    if operator is None:
+        return
 
-    total = runtime.active().run(lambda ctx: ctx.users.count_page(query=query))
-    page_index = components.paginator("users", total)
+    with components.toolbar():
+        query = st.text_input(
+            "Search by name, email or id", placeholder="RealistikDash"
+        )
+        order = _ORDERS[
+            components.choose(
+                "Order", list(_ORDERS), lambda label: label, key="users_order"
+            )
+        ]
+        total = runtime.active().run(lambda ctx: ctx.users.count_page(query=query))
+        page_index = components.paginator("users", total)
+
     listing = runtime.active().run(lambda ctx: _listing(ctx, query, order, page_index))
     selected = components.table(_frame(listing), "users_table")
     chosen = [listing.users[index] for index in selected if index < len(listing.users)]
 
-    if len(chosen) == 1:
-        _detail_view(chosen[0].id)
+    if not chosen:
+        st.markdown(
+            theme.muted("Select one row for the profile, several for bulk actions."),
+            unsafe_allow_html=True,
+        )
 
-    if chosen:
-        _bulk(chosen, listing.all_roles)
+        return
 
-    st.markdown(
-        theme.muted(
-            f"Server time {clock.now():%Y-%m-%d %H:%M} UTC · "
-            f"bans expire relative to it; a 7 day ban ends "
-            f"{(clock.now() + timedelta(days=7)):%Y-%m-%d}."
-        ),
-        unsafe_allow_html=True,
-    )
+    detail_column, bulk_column = st.columns([3, 2], border=True)
+
+    with detail_column:
+        if len(chosen) == 1:
+            _detail_view(chosen[0].id, operator.user_id)
+        else:
+            st.markdown("#### Selection")
+            components.badges([user.username for user in chosen[:40]], "gray")
+
+    with bulk_column:
+        _bulk(chosen, listing.all_roles, operator.user_id)

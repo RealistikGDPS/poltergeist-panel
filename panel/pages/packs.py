@@ -60,6 +60,7 @@ def _colour(text: str) -> int:
 
 
 def _map_packs(loaded: Packs, actor: int) -> None:
+    st.markdown("#### Map packs")
     frame = pd.DataFrame(
         [
             {
@@ -83,23 +84,26 @@ def _map_packs(loaded: Packs, actor: int) -> None:
         )
         st.rerun()
 
-    with st.form("pack_create"):
-        st.markdown("#### New map pack")
-        first, second, third = st.columns([2, 1, 1])
-        name = first.text_input("Name", max_chars=64)
-        stars = second.number_input("Stars", min_value=0, max_value=10, value=3)
-        coins = third.number_input("Coins", min_value=0, max_value=2, value=1)
-        difficulty = components.choose(
-            "Difficulty",
-            list(MapPackDifficulty),
-            lambda d: d.name.replace("_", " ").title(),
-        )
+    with st.form("pack_create", border=False):
+        st.markdown("**New map pack**")
+        name = st.text_input("Name", max_chars=64)
+        left, middle, right = st.columns(3)
+        stars = left.number_input("Stars", min_value=0, max_value=10, value=3)
+        coins = middle.number_input("Coins", min_value=0, max_value=2, value=1)
+
+        with right:
+            difficulty = components.choose(
+                "Difficulty",
+                list(MapPackDifficulty),
+                lambda d: d.name.replace("_", " ").title(),
+            )
+
         level_text = st.text_input("Level ids, comma separated")
         left, right = st.columns(2)
         text_colour = left.color_picker("Text colour", "#ffffff")
         bar_colour = right.color_picker("Bar colour", "#b48cff")
 
-        if st.form_submit_button("Create pack", type="primary"):
+        if st.form_submit_button("Create pack", type="primary", width="stretch"):
             components.report(
                 runtime.active().run(
                     lambda ctx: packs.create_map_pack(
@@ -120,6 +124,7 @@ def _map_packs(loaded: Packs, actor: int) -> None:
 
 
 def _gauntlets(loaded: Packs, actor: int) -> None:
+    st.markdown("#### Gauntlets")
     frame = pd.DataFrame(
         [
             {
@@ -140,12 +145,12 @@ def _gauntlets(loaded: Packs, actor: int) -> None:
         )
         st.rerun()
 
-    with st.form("gauntlet_set"):
-        st.markdown("#### Set a gauntlet")
+    with st.form("gauntlet_set", border=False):
+        st.markdown("**Set a gauntlet**")
         gauntlet_id = components.choose("Gauntlet", list(range(1, 61)), labels.gauntlet)
         level_text = st.text_input("Exactly five level ids, comma separated")
 
-        if st.form_submit_button("Save gauntlet", type="primary"):
+        if st.form_submit_button("Save gauntlet", type="primary", width="stretch"):
             components.report(
                 runtime.active().run(
                     lambda ctx: packs.set_gauntlet(
@@ -168,10 +173,10 @@ def page() -> None:
         return
 
     loaded = runtime.active().run(_load)
-    packs_tab, gauntlets_tab = st.tabs(["Map packs", "Gauntlets"])
+    packs_column, gauntlets_column = st.columns(2, border=True)
 
-    with packs_tab:
+    with packs_column:
         _map_packs(loaded, operator.user_id)
 
-    with gauntlets_tab:
+    with gauntlets_column:
         _gauntlets(loaded, operator.user_id)

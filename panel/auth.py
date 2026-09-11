@@ -77,12 +77,12 @@ def require(runtime: Runtime) -> Operator:
     theme.apply()
     _, column, _ = st.columns([1, 1.2, 1])
 
-    with column:
+    with column, st.container(border=True):
         st.markdown('<div class="pg-brand">POLTERGEIST</div>', unsafe_allow_html=True)
         st.markdown('<div class="pg-sub">Control room</div>', unsafe_allow_html=True)
-        st.write("")
+        st.space("small")
 
-        with st.form("sign_in"):
+        with st.form("sign_in", border=False):
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
             submitted = st.form_submit_button(

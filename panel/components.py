@@ -1,22 +1,29 @@
 from collections.abc import Callable
 from collections.abc import Sequence
+from contextlib import contextmanager
 from datetime import datetime
+from typing import Any
+from typing import Literal
 
 import pandas as pd
 import streamlit as st
 from gdformat import encoding
+from streamlit.delta_generator import DeltaGenerator
 
 from app.services import ServiceError
 from app.services import is_error
 from app.utilities import clock
 from panel import theme
 
+type BadgeColour = Literal["red", "orange", "yellow", "blue", "green", "violet", "gray"]
+
 PAGE_SIZE = 50
 
 
 def header(title: str, subtitle: str) -> None:
-    st.markdown(f"## {title}")
-    st.markdown(theme.muted(subtitle), unsafe_allow_html=True)
+    with st.container(horizontal=True, vertical_alignment="bottom", gap="medium"):
+        st.markdown(theme.title(title), unsafe_allow_html=True)
+        st.markdown(theme.muted(subtitle), unsafe_allow_html=True)
 
 
 def age(moment: datetime | None) -> str:
@@ -30,20 +37,22 @@ def stamp(moment: datetime | None) -> str:
     return "" if moment is None else moment.strftime("%Y-%m-%d %H:%M")
 
 
+@contextmanager
+def toolbar() -> Any:
+    """A bordered horizontal strip for filters and paging."""
+
+    with st.container(
+        border=True, horizontal=True, vertical_alignment="bottom", gap="medium"
+    ):
+        yield
+
+
 def paginator(key: str, total: int, size: int = PAGE_SIZE) -> int:
+    """A native pagination widget; returns the zero-based page."""
+
     pages = max((total + size - 1) // size, 1)
-    left, right = st.columns([1, 3])
-
-    with left:
-        page = st.number_input(
-            "Page", min_value=1, max_value=pages, value=1, step=1, key=f"{key}_page"
-        )
-
-    with right:
-        st.write("")
-        st.markdown(
-            theme.muted(f"{total} rows, page {page} of {pages}"), unsafe_allow_html=True
-        )
+    page = st.pagination(pages, key=f"{key}_page", width="content")
+    st.markdown(theme.muted(f"{total:,} rows"), unsafe_allow_html=True)
 
     return int(page) - 1
 
@@ -104,8 +113,13 @@ def confirm(label: str, key: str, *, danger: bool = True) -> bool:
         return st.button("Confirm", key=f"{key}_confirm", type="primary")
 
 
-def pills(labels: Sequence[str], kind: str = "info") -> str:
-    return " ".join(theme.pill(label, kind) for label in labels)
+def badges(labels: Sequence[str], colour: BadgeColour = "violet") -> None:
+    if not labels:
+        return
+
+    with st.container(horizontal=True, gap="small"):
+        for label in labels:
+            st.badge(label, color=colour)
 
 
 def choose[T](
@@ -120,6 +134,16 @@ def choose[T](
     chosen = st.selectbox(label, options, format_func=describe, key=key)
 
     return options[0] if chosen is None else chosen
+
+
+def facts(rows: list[tuple[str, str]]) -> None:
+    st.markdown(theme.facts(rows), unsafe_allow_html=True)
+
+
+def metric(
+    container: DeltaGenerator, label: str, value: int | str, **extras: Any
+) -> None:
+    container.metric(label, value, border=True, **extras)
 
 
 def parse_ids(text: str) -> list[int]:

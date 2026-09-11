@@ -19,15 +19,13 @@ _BYTES_PER_MB = 1_048_576
 @dataclass(frozen=True, slots=True)
 class Listing:
     songs: list[Song]
-    total: int
 
 
 async def _listing(ctx: AbstractContext, query: str, page: int) -> Listing:
     return Listing(
         songs=await ctx.songs.list_page(
             query=query, page=page, size=components.PAGE_SIZE
-        ),
-        total=await ctx.songs.count_page(query=query),
+        )
     )
 
 
@@ -52,9 +50,12 @@ def page() -> None:
         return
 
     actor = operator.user_id
-    query = st.text_input("Search by name, artist or id")
-    total = runtime.active().run(lambda ctx: ctx.songs.count_page(query=query))
-    page_index = components.paginator("songs", total)
+
+    with components.toolbar():
+        query = st.text_input("Search by name, artist or id")
+        total = runtime.active().run(lambda ctx: ctx.songs.count_page(query=query))
+        page_index = components.paginator("songs", total)
+
     listing = runtime.active().run(lambda ctx: _listing(ctx, query, page_index))
     frame = pd.DataFrame(
         [
@@ -74,36 +75,38 @@ def page() -> None:
     chosen = [listing.songs[index].id for index in selected]
 
     if chosen:
-        left, right = st.columns(2)
+        with st.container(horizontal=True, gap="small"):
+            components.badges([f"{len(chosen)} selected"], "blue")
 
-        if left.button("Disable selected", type="primary"):
-            components.report_bulk(
-                runtime.active().run(
-                    lambda ctx: _toggle_many(ctx, actor, chosen, True)
-                ),
-                "Disabled",
-            )
-            st.rerun()
+            if st.button("Disable selected", type="primary"):
+                components.report_bulk(
+                    runtime.active().run(
+                        lambda ctx: _toggle_many(ctx, actor, chosen, True)
+                    ),
+                    "Disabled",
+                )
+                st.rerun()
 
-        if right.button("Enable selected"):
-            components.report_bulk(
-                runtime.active().run(
-                    lambda ctx: _toggle_many(ctx, actor, chosen, False)
-                ),
-                "Enabled",
-            )
-            st.rerun()
+            if st.button("Enable selected"):
+                components.report_bulk(
+                    runtime.active().run(
+                        lambda ctx: _toggle_many(ctx, actor, chosen, False)
+                    ),
+                    "Enabled",
+                )
+                st.rerun()
 
-    left, right = st.columns(2)
+    create_column, fetch_column = st.columns(2, border=True)
 
-    with left, st.form("custom_song"):
+    with create_column, st.form("custom_song", border=False):
         st.markdown("#### Add a custom song")
-        name = st.text_input("Name")
-        artist = st.text_input("Artist")
+        left, right = st.columns(2)
+        name = left.text_input("Name")
+        artist = right.text_input("Artist")
         url = st.text_input("Direct audio URL")
         size = st.number_input("Size in MB", min_value=0.0, value=3.0, step=0.1)
 
-        if st.form_submit_button("Create", type="primary"):
+        if st.form_submit_button("Create", type="primary", width="stretch"):
             components.report(
                 runtime.active().run(
                     lambda ctx: songs.create_custom(
@@ -118,7 +121,7 @@ def page() -> None:
                 "Song created.",
             )
 
-    with right, st.form("fetch_song"):
+    with fetch_column, st.form("fetch_song", border=False):
         st.markdown("#### Fetch from the official servers")
         st.markdown(
             theme.muted(
@@ -128,7 +131,7 @@ def page() -> None:
         )
         song_id = st.number_input("Song id", min_value=1, step=1)
 
-        if st.form_submit_button("Fetch"):
+        if st.form_submit_button("Fetch", width="stretch"):
             song = runtime.active().run(lambda ctx: songs.ensure(ctx, int(song_id)))
 
             if song is None:

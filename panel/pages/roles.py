@@ -40,8 +40,11 @@ async def _members(ctx: AbstractContext, role_id: int) -> list[User]:
 
 
 def _editor(role: Role, granted: list[str], actor: int) -> None:
-    with st.form(f"role_{role.id}"):
+    with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
         st.markdown(f"#### Edit `{role.name}`")
+        st.badge(f"priority {role.priority}", color="gray")
+
+    with st.form(f"role_{role.id}", border=False):
         first, second = st.columns([2, 1])
         name = first.text_input("Name", value=role.name, max_chars=32)
         priority = second.number_input("Priority", value=role.priority, step=1)
@@ -51,10 +54,10 @@ def _editor(role: Role, granted: list[str], actor: int) -> None:
         text = st.text_area(
             "Permissions, one per line (`levels.*` and `*` are wildcards)",
             value="\n".join(granted),
-            height=220,
+            height=240,
         )
 
-        if st.form_submit_button("Save role", type="primary"):
+        if st.form_submit_button("Save role", type="primary", width="stretch"):
             components.report(
                 runtime.active().run(
                     lambda ctx: administration.update_role(
@@ -72,11 +75,8 @@ def _editor(role: Role, granted: list[str], actor: int) -> None:
             st.rerun()
 
     members = runtime.active().run(lambda ctx: _members(ctx, role.id))
-    st.markdown(
-        theme.muted(f"{len(members)} member(s) shown: ")
-        + components.pills([user.username for user in members][:60]),
-        unsafe_allow_html=True,
-    )
+    st.markdown(theme.muted(f"{len(members)} member(s) shown"), unsafe_allow_html=True)
+    components.badges([user.username for user in members][:60], "gray")
 
     if role.name != "default" and components.confirm(
         f"Remove role {role.name}", f"remove_{role.id}"
@@ -90,6 +90,33 @@ def _editor(role: Role, granted: list[str], actor: int) -> None:
             "Role removed.",
         )
         st.rerun()
+
+
+def _creator(actor: int) -> None:
+    st.markdown("#### New role")
+
+    with st.form("role_create", border=False):
+        first, second = st.columns([2, 1])
+        name = first.text_input("Name (lowercase, underscores)", max_chars=32)
+        priority = second.number_input("Priority", value=10, step=1)
+        description = st.text_input("Description", max_chars=255)
+        text = st.text_area("Permissions, one per line", height=140)
+
+        if st.form_submit_button("Create role", type="primary", width="stretch"):
+            components.report(
+                runtime.active().run(
+                    lambda ctx: administration.create_role(
+                        ctx,
+                        actor_user_id=actor,
+                        name=name,
+                        description=description,
+                        priority=int(priority),
+                        granted=text.split("\n"),
+                    )
+                ),
+                "Role created.",
+            )
+            st.rerun()
 
 
 def page() -> None:
@@ -114,35 +141,22 @@ def page() -> None:
             for role in loaded.roles
         ]
     )
-    selected = components.table(frame, "roles_table", multi=False)
+    list_column, editor_column = st.columns([2, 3], border=True)
 
-    if selected:
-        role = loaded.roles[selected[0]]
-        _editor(role, loaded.permissions.get(role.id, []), actor)
+    with list_column:
+        st.markdown("#### Roles")
+        selected = components.table(frame, "roles_table", multi=False)
+        st.divider()
+        _creator(actor)
 
-    with st.form("role_create"):
-        st.markdown("#### New role")
-        first, second = st.columns([2, 1])
-        name = first.text_input("Name (lowercase, underscores)", max_chars=32)
-        priority = second.number_input("Priority", value=10, step=1)
-        description = st.text_input("Description", max_chars=255)
-        text = st.text_area("Permissions, one per line", height=140)
+        with st.expander("Permissions the server checks"):
+            st.code("\n".join(permission.value for permission in Permission))
 
-        if st.form_submit_button("Create role", type="primary"):
-            components.report(
-                runtime.active().run(
-                    lambda ctx: administration.create_role(
-                        ctx,
-                        actor_user_id=actor,
-                        name=name,
-                        description=description,
-                        priority=int(priority),
-                        granted=text.split("\n"),
-                    )
-                ),
-                "Role created.",
+    with editor_column:
+        if selected:
+            role = loaded.roles[selected[0]]
+            _editor(role, loaded.permissions.get(role.id, []), actor)
+        else:
+            st.markdown(
+                theme.muted("Select a role to edit it."), unsafe_allow_html=True
             )
-            st.rerun()
-
-    with st.expander("Permissions the server checks"):
-        st.code("\n".join(permission.value for permission in Permission))

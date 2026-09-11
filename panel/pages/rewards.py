@@ -77,6 +77,7 @@ async def _remove_secrets(
 
 
 def _quests(rewards: Rewards, actor: int) -> None:
+    st.markdown("#### Quests")
     frame = pd.DataFrame(
         [
             {
@@ -99,16 +100,19 @@ def _quests(rewards: Rewards, actor: int) -> None:
         )
         st.rerun()
 
-    with st.form("quest_create"):
-        st.markdown("#### New quest")
-        first, second, third, fourth = st.columns(4)
-        name = first.text_input("Name", max_chars=64)
-        with second:
-            item = components.choose("Item", list(QuestItem), lambda i: i.name.title())
-        amount = third.number_input("Amount", min_value=1, value=100)
-        diamonds = fourth.number_input("Diamonds", min_value=1, max_value=255, value=5)
+    with st.form("quest_create", border=False):
+        st.markdown("**New quest**")
+        left, right = st.columns(2)
+        name = left.text_input("Name", max_chars=64)
 
-        if st.form_submit_button("Create quest", type="primary"):
+        with right:
+            item = components.choose("Item", list(QuestItem), lambda i: i.name.title())
+
+        left, right = st.columns(2)
+        amount = left.number_input("Amount", min_value=1, value=100)
+        diamonds = right.number_input("Diamonds", min_value=1, max_value=255, value=5)
+
+        if st.form_submit_button("Create quest", type="primary", width="stretch"):
             components.report(
                 runtime.active().run(
                     lambda ctx: administration.create_quest(
@@ -126,6 +130,7 @@ def _quests(rewards: Rewards, actor: int) -> None:
 
 
 def _secrets(rewards: Rewards, actor: int) -> None:
+    st.markdown("#### Vault codes")
     frame = pd.DataFrame(
         [
             {
@@ -151,35 +156,44 @@ def _secrets(rewards: Rewards, actor: int) -> None:
         )
         st.rerun()
 
-    with st.form("secret_create"):
-        st.markdown("#### New vault code")
-        first, second, third = st.columns(3)
-        key = first.text_input("Code (typed by players)", max_chars=64)
-        with second:
+    with st.form("secret_create", border=False):
+        st.markdown("**New vault code**")
+        left, right = st.columns(2)
+        key = left.text_input("Code (typed by players)", max_chars=64)
+
+        with right:
             chest = components.choose(
                 "Chest look",
                 [ChestType.SMALL, ChestType.LARGE],
                 lambda c: c.name.title(),
             )
-        max_claims = third.number_input(
+
+        left, right = st.columns(2)
+        max_claims = left.number_input(
             "Max claims (0 = unlimited)", min_value=0, value=0
         )
-        expires = st.date_input("Expires on (optional)", value=None)
+        expires = right.date_input("Expires on (optional)", value=None)
         picks = []
 
         for slot in range(_ITEM_SLOTS):
             left, right = st.columns([2, 1])
-            label = left.selectbox(
-                f"Item {slot + 1}", ["None", *_ITEMS], key=f"secret_item_{slot}"
-            )
+
+            with left:
+                label = components.choose(
+                    f"Item {slot + 1}",
+                    ["None", *_ITEMS],
+                    lambda i: i,
+                    key=f"secret_item_{slot}",
+                )
+
             amount = right.number_input(
                 "Amount", min_value=1, value=100, key=f"secret_amount_{slot}"
             )
 
-            if label not in (None, "None"):
+            if label != "None":
                 picks.append((_ITEMS[label], int(amount)))
 
-        if st.form_submit_button("Create code", type="primary"):
+        if st.form_submit_button("Create code", type="primary", width="stretch"):
             expiry = None if expires is None else datetime.combine(expires, time.max)
             components.report(
                 runtime.active().run(
@@ -206,10 +220,10 @@ def page() -> None:
         return
 
     rewards = runtime.active().run(_load)
-    quests_tab, secrets_tab = st.tabs(["Quests", "Vault codes"])
+    quests_column, secrets_column = st.columns(2, border=True)
 
-    with quests_tab:
+    with quests_column:
         _quests(rewards, operator.user_id)
 
-    with secrets_tab:
+    with secrets_column:
         _secrets(rewards, operator.user_id)
