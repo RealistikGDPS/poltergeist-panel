@@ -35,6 +35,7 @@ _FAILED_LOGIN_LIMIT = 10
 _FAILED_LOGIN_WINDOW = 600
 _REGISTER_LIMIT = 3
 _REGISTER_WINDOW = 3600
+_REGISTER_ATTEMPT_LIMIT = 30
 
 
 class AuthError(ServiceError, StrEnum):
@@ -227,11 +228,16 @@ async def register(
     if validation is not None:
         return validation
 
-    within_limit = await ctx.rate_limits.hit(
-        "register", ip, limit=_REGISTER_LIMIT, window_seconds=_REGISTER_WINDOW
+    # A loose limit on attempts stops scripted probing of taken names and
+    # emails, while a player struggling to pick a free name is never locked out.
+    within_attempts = await ctx.rate_limits.hit(
+        "register_attempt",
+        ip,
+        limit=_REGISTER_ATTEMPT_LIMIT,
+        window_seconds=_REGISTER_WINDOW,
     )
 
-    if not within_limit:
+    if not within_attempts:
         return AuthError.TOO_MANY_ATTEMPTS
 
     name = request.name.strip()
@@ -242,6 +248,14 @@ async def register(
 
     if await ctx.users.find_by_email(email) is not None:
         return AuthError.EMAIL_TAKEN
+
+    # Only registrations that create an account count towards the strict limit.
+    within_limit = await ctx.rate_limits.hit(
+        "register", ip, limit=_REGISTER_LIMIT, window_seconds=_REGISTER_WINDOW
+    )
+
+    if not within_limit:
+        return AuthError.TOO_MANY_ATTEMPTS
 
     hashed = await asyncio.to_thread(_hash_gjp2, crypto.gjp2(request.password))
     user_id = await ctx.users.create(name, email)
