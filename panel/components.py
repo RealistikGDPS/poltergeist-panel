@@ -15,7 +15,7 @@ from app.services import is_error
 from app.utilities import clock
 from panel import theme
 
-type BadgeColour = Literal["red", "orange", "yellow", "blue", "green", "violet", "gray"]
+type BadgeColour = Literal["red", "orange", "yellow", "blue", "green", "orange", "gray"]
 
 PAGE_SIZE = 50
 
@@ -113,7 +113,7 @@ def confirm(label: str, key: str, *, danger: bool = True) -> bool:
         return st.button("Confirm", key=f"{key}_confirm", type="primary")
 
 
-def badges(labels: Sequence[str], colour: BadgeColour = "violet") -> None:
+def badges(labels: Sequence[str], colour: BadgeColour = "orange") -> None:
     if not labels:
         return
 

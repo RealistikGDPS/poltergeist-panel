@@ -7,75 +7,62 @@ import pandas as pd
 from app.resources import DailyCount
 from app.resources import LabelCount
 
-_ACCENT = "#b48cff"
+_ACCENT = "#d97757"
 _PALETTE = [
-    "#b48cff",
-    "#7b3fe4",
-    "#ff9db0",
-    "#7ee2b0",
-    "#ffd58a",
-    "#7cc7ff",
-    "#f3ecff",
-    "#c58cff",
-    "#ff5c78",
-    "#48c78e",
-    "#ffbe50",
-    "#4a1d8f",
+    "#d97757",
+    "#8ab4f8",
+    "#81c995",
+    "#fdd663",
+    "#f28b82",
+    "#c58af9",
+    "#78d9ec",
+    "#ff8bcb",
+    "#9aa0a6",
+    "#e3e3e3",
+    "#a1887f",
+    "#5f6368",
 ]
 
 
-def _base(chart: alt.Chart, title: str) -> alt.Chart:
+type Figure = alt.Chart | alt.LayerChart
+
+
+def _base(chart: Figure, title: str) -> Figure:
     return (
         chart.properties(title=title, height=260)
         .configure(background="transparent")
         .configure_view(strokeOpacity=0)
         .configure_axis(
-            labelColor="#b9a6e6",
-            titleColor="#b9a6e6",
-            gridColor="#2a2040",
+            labelColor="#9aa0a6",
+            titleColor="#9aa0a6",
+            gridColor="#2e2f31",
             domainOpacity=0,
         )
-        .configure_title(color="#ece4ff", fontSize=14, anchor="start")
-        .configure_legend(labelColor="#b9a6e6", titleColor="#b9a6e6")
+        .configure_title(color="#e3e3e3", fontSize=14, anchor="start")
+        .configure_legend(labelColor="#9aa0a6", titleColor="#9aa0a6")
     )
 
 
-def daily(series: Sequence[DailyCount], title: str, colour: str = _ACCENT) -> alt.Chart:
+def daily(series: Sequence[DailyCount], title: str, colour: str = _ACCENT) -> Figure:
     frame = pd.DataFrame(
         {"day": [row.day for row in series], "count": [row.count for row in series]}
     )
 
-    area = (
-        alt.Chart(frame)
-        .mark_area(
-            line={"color": colour},
-            color=alt.Gradient(
-                gradient="linear",
-                stops=[
-                    alt.GradientStop(color=colour, offset=0),
-                    alt.GradientStop(color="#0b0716", offset=1),
-                ],
-                x1=1,
-                x2=1,
-                y1=1,
-                y2=0,
-            ),
-            opacity=0.75,
-            interpolate="monotone",
-        )
-        .encode(
-            x=alt.X("day:T", title=None),
-            y=alt.Y("count:Q", title=None),
-            tooltip=["day:T", "count:Q"],
-        )
+    base = alt.Chart(frame).encode(
+        x=alt.X("day:T", title=None),
+        y=alt.Y("count:Q", title=None),
+        tooltip=["day:T", "count:Q"],
     )
+    area = base.mark_area(color=colour, opacity=0.18, interpolate="monotone")
+    line = base.mark_line(color=colour, strokeWidth=2, interpolate="monotone")
 
-    return _base(area, title)
+    layered = alt.layer(area, line)
+    assert isinstance(layered, alt.LayerChart)
+
+    return _base(layered, title)
 
 
-def bars(
-    series: Sequence[LabelCount], title: str, labels: Mapping[int, str]
-) -> alt.Chart:
+def bars(series: Sequence[LabelCount], title: str, labels: Mapping[int, str]) -> Figure:
     frame = pd.DataFrame(
         {
             "label": [labels.get(row.label, str(row.label)) for row in series],
@@ -100,7 +87,7 @@ def bars(
     return _base(chart, title)
 
 
-def hours(series: Sequence[LabelCount], title: str) -> alt.Chart:
+def hours(series: Sequence[LabelCount], title: str) -> Figure:
     counts = {row.label: row.count for row in series}
 
     frame = pd.DataFrame(

@@ -35,7 +35,7 @@ def _header(operator: auth.Operator) -> None:
 
         with st.container(horizontal=True, vertical_alignment="center", gap="small"):
             st.badge(
-                f"{operator.username} #{operator.user_id}", icon="👤", color="violet"
+                f"{operator.username} #{operator.user_id}", icon="👤", color="orange"
             )
 
             if st.button("Sign out"):

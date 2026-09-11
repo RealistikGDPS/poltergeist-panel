@@ -9,8 +9,12 @@ gatherUsageStats = false
 
 [theme]
 base = "dark"
-primaryColor = "#b48cff"
-backgroundColor = "#0b0716"
-secondaryBackgroundColor = "#17102b"
-textColor = "#ece4ff"
+primaryColor = "#d97757"
+backgroundColor = "#131314"
+secondaryBackgroundColor = "#1e1f20"
+textColor = "#e3e3e3"
+borderColor = "#2e2f31"
+dataframeBorderColor = "#2e2f31"
+baseRadius = "0.75rem"
+showWidgetBorder = true
 font = "sans serif"
