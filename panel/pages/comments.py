@@ -157,7 +157,7 @@ def _actions(
     with ban_column, st.form(f"{key}_ban_form", border=False):
         st.markdown("#### Comment-ban the authors")
         components.badges([f"{len(set(author_ids))} authors"], "blue")
-        left, right = st.columns(2)
+        left, right = st.columns(2, vertical_alignment="bottom")
         permanent = left.checkbox("Permanent", key=f"{key}_perm")
         days = right.number_input(
             "Days", min_value=1, max_value=3650, value=3, key=f"{key}_days"

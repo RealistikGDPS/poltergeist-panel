@@ -190,7 +190,7 @@ def _bulk(selected: list[User], all_roles: list[Role], actor: int) -> None:
 
     with ban_tab, st.form("bulk_ban", border=False):
         ban_type = components.choose("Type", list(BanType), lambda b: labels.BAN[b])
-        left, right = st.columns(2)
+        left, right = st.columns(2, vertical_alignment="bottom")
         permanent = left.checkbox("Permanent", value=False)
         days = right.number_input("Days", min_value=1, max_value=3650, value=7)
         reason = st.text_input("Reason", max_chars=255)
