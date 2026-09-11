@@ -8,24 +8,24 @@ _CSS = """
 
 html, body, [class*="css"], .stApp { font-family: 'Inter', system-ui, sans-serif; }
 code, pre, .stCode { font-family: 'JetBrains Mono', monospace; }
-header[data-testid="stHeader"] { background: #131314; border-bottom: 1px solid #2e2f31; }
+header[data-testid="stHeader"] { background: #0f0c19; border-bottom: 1px solid #2c2447; }
 #MainMenu, footer { visibility: hidden; }
 .block-container { padding-bottom: 2rem; }
 
-.pg-brand { font-weight: 600; letter-spacing: .12em; font-size: 1rem; color: #e3e3e3; }
-.pg-sub { color: #9aa0a6; font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; }
-.pg-muted { color: #9aa0a6; font-size: .85rem; }
-.pg-title { font-size: 1.5rem; font-weight: 600; color: #e3e3e3; margin: 0; }
+.pg-brand { font-weight: 600; letter-spacing: .12em; font-size: 1rem; color: #ece4ff; }
+.pg-sub { color: #9f8cc9; font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; }
+.pg-muted { color: #9f8cc9; font-size: .85rem; }
+.pg-title { font-size: 1.5rem; font-weight: 600; color: #ece4ff; margin: 0; }
 
-div[data-testid="stVerticalBlockBorderWrapper"] { border-color: #2e2f31 !important; border-radius: 12px; background: #1e1f20; }
-div[data-testid="stMetric"] { background: #131314; border-radius: 12px; }
-div[data-testid="stMetric"] label { color: #9aa0a6 !important; letter-spacing: .06em; text-transform: uppercase; font-size: .7rem; }
-div[data-testid="stMetricValue"] { color: #e3e3e3; font-weight: 600; }
+div[data-testid="stVerticalBlockBorderWrapper"] { border-color: #2c2447 !important; border-radius: 12px; background: #18132a; }
+div[data-testid="stMetric"] { background: #0f0c19; border-radius: 12px; }
+div[data-testid="stMetric"] label { color: #9f8cc9 !important; letter-spacing: .06em; text-transform: uppercase; font-size: .7rem; }
+div[data-testid="stMetricValue"] { color: #ece4ff; font-weight: 600; }
 
 .stTabs [data-baseweb="tab-list"] { gap: 1.2rem; }
 
 .pg-kv { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1.2rem; font-size: .9rem; margin-bottom: 1rem; }
-.pg-kv span:nth-child(odd) { color: #9aa0a6; }
+.pg-kv span:nth-child(odd) { color: #9f8cc9; }
 </style>
 """
 

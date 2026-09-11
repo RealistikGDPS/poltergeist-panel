@@ -176,13 +176,13 @@ def page() -> None:
     grid = st.columns(2, border=True)
     grid[0].altair_chart(charts.daily(registrations, "Registrations"), width="stretch")
     grid[1].altair_chart(
-        charts.daily(active, "Players seen", "#81c995"), width="stretch"
+        charts.daily(active, "Players seen", "#7ee2b0"), width="stretch"
     )
     grid = st.columns(2, border=True)
     grid[0].altair_chart(
-        charts.daily(uploads, "Level uploads", "#fdd663"), width="stretch"
+        charts.daily(uploads, "Level uploads", "#ffd58a"), width="stretch"
     )
-    grid[1].altair_chart(charts.daily(comments, "Comments", "#8ab4f8"), width="stretch")
+    grid[1].altair_chart(charts.daily(comments, "Comments", "#7cc7ff"), width="stretch")
 
     grid = st.columns(3, border=True)
     grid[0].altair_chart(
@@ -202,7 +202,7 @@ def page() -> None:
         charts.hours(overview.hours, "Comments by hour"), width="stretch"
     )
     grid[1].altair_chart(
-        charts.daily(actions, "Moderation actions", "#f28b82"), width="stretch"
+        charts.daily(actions, "Moderation actions", "#ff9db0"), width="stretch"
     )
 
     left, right = st.columns([1, 1], border=True)

@@ -7,20 +7,20 @@ import pandas as pd
 from app.resources import DailyCount
 from app.resources import LabelCount
 
-_ACCENT = "#d97757"
+_ACCENT = "#b48cff"
 _PALETTE = [
-    "#d97757",
-    "#8ab4f8",
-    "#81c995",
-    "#fdd663",
-    "#f28b82",
-    "#c58af9",
+    "#b48cff",
+    "#7cc7ff",
+    "#7ee2b0",
+    "#ffd58a",
+    "#ff9db0",
+    "#e0b3ff",
     "#78d9ec",
     "#ff8bcb",
-    "#9aa0a6",
-    "#e3e3e3",
-    "#a1887f",
-    "#5f6368",
+    "#9f8cc9",
+    "#ece4ff",
+    "#7b3fe4",
+    "#4a1d8f",
 ]
 
 
@@ -33,13 +33,13 @@ def _base(chart: Figure, title: str) -> Figure:
         .configure(background="transparent")
         .configure_view(strokeOpacity=0)
         .configure_axis(
-            labelColor="#9aa0a6",
-            titleColor="#9aa0a6",
-            gridColor="#2e2f31",
+            labelColor="#9f8cc9",
+            titleColor="#9f8cc9",
+            gridColor="#2c2447",
             domainOpacity=0,
         )
-        .configure_title(color="#e3e3e3", fontSize=14, anchor="start")
-        .configure_legend(labelColor="#9aa0a6", titleColor="#9aa0a6")
+        .configure_title(color="#ece4ff", fontSize=14, anchor="start")
+        .configure_legend(labelColor="#9f8cc9", titleColor="#9f8cc9")
     )
 
 

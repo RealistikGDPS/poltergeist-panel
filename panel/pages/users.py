@@ -252,7 +252,7 @@ def _detail_view(user_id: int, actor: int) -> None:
         st.markdown(f"#### {user.username}")
         st.badge(f"#{user.id}", color="gray")
 
-    components.badges([role.name for role in detail.roles], "orange")
+    components.badges([role.name for role in detail.roles], "violet")
     components.badges([f"{ban.type.value} ban" for ban in detail.bans], "red")
 
     if not detail.has_password:
