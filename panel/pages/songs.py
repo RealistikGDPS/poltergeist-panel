@@ -40,9 +40,46 @@ async def _toggle_many(
     ]
 
 
+def _editor(song: Song, actor: int) -> None:
+    with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
+        st.markdown(f"#### Edit song {song.id}")
+        st.badge(song.source.value, color="gray")
+
+    with st.form(f"song_{song.id}", border=False):
+        left, right = st.columns(2)
+        name = left.text_input("Name", value=song.name, max_chars=128)
+        artist = right.text_input("Artist", value=song.artist_name, max_chars=64)
+        url = st.text_input("Direct audio URL", value=song.url, max_chars=512)
+        size = st.number_input(
+            "Size in MB",
+            min_value=0.0,
+            value=round(song.size_bytes / _BYTES_PER_MB, 2),
+            step=0.1,
+        )
+
+        if st.form_submit_button("Save song", type="primary", width="stretch"):
+            components.report(
+                runtime.active().run(
+                    lambda ctx: administration.update_song(
+                        ctx,
+                        actor_user_id=actor,
+                        song_id=song.id,
+                        name=name,
+                        artist_name=artist,
+                        url=url,
+                        size_bytes=int(size * _BYTES_PER_MB),
+                    )
+                ),
+                "Song saved.",
+            )
+            st.rerun()
+
+
 def page() -> None:
     components.header(
-        "Songs", "Newgrounds, library and custom songs known to the server."
+        "Songs",
+        "Newgrounds, library and custom songs known to the server. "
+        "Select one row to edit it.",
     )
     operator = current()
 
@@ -73,6 +110,10 @@ def page() -> None:
     )
     selected = components.table(frame, "songs_table")
     chosen = [listing.songs[index].id for index in selected]
+
+    if len(selected) == 1:
+        with st.container(border=True):
+            _editor(listing.songs[selected[0]], actor)
 
     if chosen:
         with st.container(horizontal=True, gap="small"):
