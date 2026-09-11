@@ -5,18 +5,17 @@ from collections.abc import Callable
 from typing import override
 
 import streamlit as st
-
-from app.adapters import boomlings
-from app.adapters import mysql
-from app.adapters import redis
-from app.adapters import storage
-from app.adapters.boomlings import BoomlingsClient
-from app.adapters.mysql import ImplementsMySQL
-from app.adapters.mysql import MySQLPool
-from app.adapters.redis import RedisClient
-from app.adapters.storage import ImplementsStorage
-from app.services import AbstractContext
-from app.utilities import logging
+from poltergeist_core.adapters import boomlings
+from poltergeist_core.adapters import mysql
+from poltergeist_core.adapters import redis
+from poltergeist_core.adapters import storage
+from poltergeist_core.adapters.boomlings import BoomlingsClient
+from poltergeist_core.adapters.mysql import ImplementsMySQL
+from poltergeist_core.adapters.mysql import MySQLPool
+from poltergeist_core.adapters.redis import RedisClient
+from poltergeist_core.adapters.storage import ImplementsStorage
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.utilities import logging
 
 type Action[T] = Callable[[AbstractContext], Awaitable[T]]
 

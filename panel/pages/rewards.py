@@ -7,12 +7,12 @@ import streamlit as st
 from gdformat.enums import ChestType
 from gdformat.enums import QuestItem
 from gdformat.enums import RewardItem
+from poltergeist_core.resources import Quest
+from poltergeist_core.resources import SecretReward
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import ServiceError
+from poltergeist_core.services import administration
 
-from app.resources import Quest
-from app.resources import SecretReward
-from app.services import AbstractContext
-from app.services import ServiceError
-from app.services import administration
 from panel import components
 from panel import runtime
 from panel.auth import current

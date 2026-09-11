@@ -3,13 +3,13 @@ from dataclasses import dataclass
 import pandas as pd
 import streamlit as st
 from gdformat.enums import MapPackDifficulty
+from poltergeist_core.resources import Gauntlet
+from poltergeist_core.resources import MapPack
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import ServiceError
+from poltergeist_core.services import administration
+from poltergeist_core.services import packs
 
-from app.resources import Gauntlet
-from app.resources import MapPack
-from app.services import AbstractContext
-from app.services import ServiceError
-from app.services import administration
-from app.services import packs
 from panel import components
 from panel import labels
 from panel import runtime

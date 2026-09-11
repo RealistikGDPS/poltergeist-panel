@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
 import streamlit as st
+from poltergeist_core import settings
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import administration
+from poltergeist_core.services import leaderboards
+from poltergeist_core.utilities import clock
 
-from app import settings
-from app.services import AbstractContext
-from app.services import administration
-from app.services import leaderboards
-from app.utilities import clock
 from panel import components
 from panel import runtime
 from panel import theme

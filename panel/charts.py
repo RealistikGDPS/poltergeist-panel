@@ -3,9 +3,8 @@ from collections.abc import Sequence
 
 import altair as alt
 import pandas as pd
-
-from app.resources import DailyCount
-from app.resources import LabelCount
+from poltergeist_core.resources import DailyCount
+from poltergeist_core.resources import LabelCount
 
 _ACCENT = "#b48cff"
 _PALETTE = [

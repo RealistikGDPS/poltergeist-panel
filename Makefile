@@ -17,5 +17,3 @@ lint:
 dev:
 	uv run streamlit run panel/main.py --server.port 8501
 
-sync:
-	rm -rf app && cp -r ../poltergeist/app app && rm -rf app/api app/main.py && sed -i '/from . import api/d' app/__init__.py

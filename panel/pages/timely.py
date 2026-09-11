@@ -3,14 +3,14 @@ from dataclasses import dataclass
 import pandas as pd
 import streamlit as st
 from gdformat.enums import TimelyType
+from poltergeist_core.resources import Level
+from poltergeist_core.resources import TimelyLevel
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import ServiceError
+from poltergeist_core.services import administration
+from poltergeist_core.services import timely
+from poltergeist_core.utilities import clock
 
-from app.resources import Level
-from app.resources import TimelyLevel
-from app.services import AbstractContext
-from app.services import ServiceError
-from app.services import administration
-from app.services import timely
-from app.utilities import clock
 from panel import components
 from panel import labels
 from panel import runtime

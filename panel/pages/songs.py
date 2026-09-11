@@ -2,12 +2,12 @@ from dataclasses import dataclass
 
 import pandas as pd
 import streamlit as st
+from poltergeist_core.resources import Song
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import ServiceError
+from poltergeist_core.services import administration
+from poltergeist_core.services import songs
 
-from app.resources import Song
-from app.services import AbstractContext
-from app.services import ServiceError
-from app.services import administration
-from app.services import songs
 from panel import components
 from panel import runtime
 from panel import theme

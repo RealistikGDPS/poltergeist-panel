@@ -9,19 +9,11 @@ authors = [{ name = "RealistikDash" }]
 requires-python = ">=3.14"
 dependencies = [
     "altair>=6.2.2",
-    "asyncmy>=0.2.14",
-    "bcrypt>=5.0.0",
-    "cryptography>=46.0.5",
-    "fastapi>=0.141.1",
     "gdformat>=0.2.1",
-    "httpx>=0.28.1",
     "pandas>=3.0.5",
-    "pydantic>=2.13.5",
+    "poltergeist-core",
     "python-json-logger>=4.2.0",
-    "pyyaml>=6.0.3",
-    "redis>=8.1.0",
     "streamlit>=1.63.0",
-    "uvloop>=0.22.1",
 ]
 
 [dependency-groups]
@@ -30,7 +22,6 @@ dev = [
     "pandas-stubs>=2.3",
     "pre-commit>=4",
     "ruff>=0.14",
-    "types-pyyaml>=6.0.12",
 ]
 
 [tool.ruff]
@@ -58,12 +49,11 @@ warn_unreachable = true
 implicit_reexport = true
 plugins = ["pydantic.mypy"]
 
-[[tool.mypy.overrides]]
-module = ["asyncmy", "asyncmy.*", "uvloop"]
-ignore_missing_imports = true
-
 # Altair's chaining API returns partially typed values.
 [[tool.mypy.overrides]]
 module = ["panel.charts"]
 warn_return_any = false
 disallow_untyped_calls = false
+
+[tool.uv.sources]
+poltergeist-core = { git = "https://github.com/RealistikGDPS/poltergeist-core" }

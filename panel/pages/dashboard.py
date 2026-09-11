@@ -4,14 +4,14 @@ from datetime import timedelta
 
 import pandas as pd
 import streamlit as st
+from poltergeist_core.resources import CreatorRow
+from poltergeist_core.resources import DailyCount
+from poltergeist_core.resources import LabelCount
+from poltergeist_core.resources import ModAction
+from poltergeist_core.resources import Totals
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.utilities import clock
 
-from app.resources import CreatorRow
-from app.resources import DailyCount
-from app.resources import LabelCount
-from app.resources import ModAction
-from app.resources import Totals
-from app.services import AbstractContext
-from app.utilities import clock
 from panel import charts
 from panel import components
 from panel import labels

@@ -10,11 +10,12 @@ change lands in the moderation log with your name on it.
 
 ## How it fits together
 
-The panel talks to Poltergeist's MySQL and Redis directly through a copy of
-Poltergeist's non-HTTP layers (`app/adapters`, `app/resources`,
-`app/services`, `app/utilities`, `app/settings.py`). `make sync` refreshes that
-copy from a sibling `../poltergeist` checkout; the panel itself lives in
-`panel/` and is the only code written here.
+The panel talks to Poltergeist's MySQL and Redis directly through
+[poltergeist-core](https://github.com/RealistikGDPS/poltergeist-core), the
+library holding Poltergeist's adapters, resources and services, consumed
+from Git. Shared logic changes there; pull a newer revision in with
+`uv lock --upgrade-package poltergeist-core`. Everything in `panel/` is the
+code written here.
 
 ```
 panel/
@@ -35,7 +36,8 @@ Poltergeist's nginx at `/panel`:
 ```bash
 for f in configuration/*.example; do cp "$f" "${f%.example}"; done
 cp .env.example .env
-# Use the same app.env and mysql.env values as the Poltergeist deployment.
+# Use the same app.env and mysql.env values as the Poltergeist deployment and
+# set GITHUB_TOKEN to a token that can read the private poltergeist-core repo.
 make build
 make run
 ```

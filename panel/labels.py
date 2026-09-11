@@ -3,8 +3,7 @@ from gdformat.enums import Length
 from gdformat.enums import Rating
 from gdformat.enums import TimelyType
 from gdformat.enums import Visibility
-
-from app.resources import BanType
+from poltergeist_core.resources import BanType
 
 DIFFICULTY = {
     int(Difficulty.NA): "N/A",

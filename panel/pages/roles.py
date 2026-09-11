@@ -2,12 +2,12 @@ from dataclasses import dataclass
 
 import pandas as pd
 import streamlit as st
+from poltergeist_core.resources import Permission
+from poltergeist_core.resources import Role
+from poltergeist_core.resources import User
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import administration
 
-from app.resources import Permission
-from app.resources import Role
-from app.resources import User
-from app.services import AbstractContext
-from app.services import administration
 from panel import components
 from panel import runtime
 from panel import theme

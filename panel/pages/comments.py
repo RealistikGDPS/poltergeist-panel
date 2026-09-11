@@ -2,15 +2,15 @@ from dataclasses import dataclass
 
 import pandas as pd
 import streamlit as st
+from poltergeist_core.resources import AccountComment
+from poltergeist_core.resources import BanType
+from poltergeist_core.resources import Comment
+from poltergeist_core.resources import User
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import ServiceError
+from poltergeist_core.services import comments
+from poltergeist_core.services import moderation
 
-from app.resources import AccountComment
-from app.resources import BanType
-from app.resources import Comment
-from app.resources import User
-from app.services import AbstractContext
-from app.services import ServiceError
-from app.services import comments
-from app.services import moderation
 from panel import components
 from panel import runtime
 from panel import theme

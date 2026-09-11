@@ -3,15 +3,15 @@ from dataclasses import dataclass
 
 import pandas as pd
 import streamlit as st
+from poltergeist_core.resources import BanType
+from poltergeist_core.resources import ModAction
+from poltergeist_core.resources import ModTarget
+from poltergeist_core.resources import User
+from poltergeist_core.resources import UserBan
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import ServiceError
+from poltergeist_core.services import moderation
 
-from app.resources import BanType
-from app.resources import ModAction
-from app.resources import ModTarget
-from app.resources import User
-from app.resources import UserBan
-from app.services import AbstractContext
-from app.services import ServiceError
-from app.services import moderation
 from panel import components
 from panel import labels
 from panel import runtime

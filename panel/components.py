@@ -8,11 +8,11 @@ from typing import Literal
 import pandas as pd
 import streamlit as st
 from gdformat import encoding
+from poltergeist_core.services import ServiceError
+from poltergeist_core.services import is_error
+from poltergeist_core.utilities import clock
 from streamlit.delta_generator import DeltaGenerator
 
-from app.services import ServiceError
-from app.services import is_error
-from app.utilities import clock
 from panel import theme
 
 type BadgeColour = Literal["red", "orange", "yellow", "blue", "green", "violet", "gray"]

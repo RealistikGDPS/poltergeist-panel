@@ -1,7 +1,7 @@
 import streamlit as st
+from poltergeist_core import settings
+from poltergeist_core.utilities import logging
 
-from app import settings
-from app.utilities import logging
 from panel import auth
 from panel import runtime
 from panel import theme

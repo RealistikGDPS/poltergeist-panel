@@ -4,12 +4,12 @@ import streamlit as st
 from gdformat import crypto
 from gdformat.requests import Client
 from gdformat.requests import LoginRequest
+from poltergeist_core.resources import Permission
+from poltergeist_core.services import auth
+from poltergeist_core.services import is_error
+from poltergeist_core.services.auth import Session
+from poltergeist_core.services.auth import User
 
-from app.resources import Permission
-from app.services import auth
-from app.services import is_error
-from app.services.auth import Session
-from app.services.auth import User
 from panel import theme
 from panel.runtime import Runtime
 

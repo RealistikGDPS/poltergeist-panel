@@ -2,19 +2,19 @@ from dataclasses import dataclass
 
 import pandas as pd
 import streamlit as st
+from poltergeist_core.resources import BanType
+from poltergeist_core.resources import Device
+from poltergeist_core.resources import Role
+from poltergeist_core.resources import User
+from poltergeist_core.resources import UserBan
+from poltergeist_core.resources import UserStats
+from poltergeist_core.services import AbstractContext
+from poltergeist_core.services import ServiceError
+from poltergeist_core.services import administration
+from poltergeist_core.services import auth
+from poltergeist_core.services import moderation
+from poltergeist_core.services import roles
 
-from app.resources import BanType
-from app.resources import Device
-from app.resources import Role
-from app.resources import User
-from app.resources import UserBan
-from app.resources import UserStats
-from app.services import AbstractContext
-from app.services import ServiceError
-from app.services import administration
-from app.services import auth
-from app.services import moderation
-from app.services import roles
 from panel import components
 from panel import labels
 from panel import runtime
