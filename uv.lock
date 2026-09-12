@@ -919,7 +919,7 @@ wheels = [
 [[package]]
 name = "poltergeist-core"
 version = "0.1.0"
-source = { git = "https://github.com/RealistikGDPS/poltergeist-core#a72ff35f779fa9ae3b7392f6286828a682c00101" }
+source = { git = "https://github.com/RealistikGDPS/poltergeist-core#7a104377b30e1d117eb40c32101f7d17f6ae0ec7" }
 dependencies = [
     { name = "asyncmy" },
     { name = "bcrypt" },
