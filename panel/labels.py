@@ -4,6 +4,7 @@ from gdformat.enums import Rating
 from gdformat.enums import TimelyType
 from gdformat.enums import Visibility
 from poltergeist_core.resources import BanType
+from poltergeist_core.resources import UserKind
 
 DIFFICULTY = {
     int(Difficulty.NA): "N/A",
@@ -44,6 +45,7 @@ TIMELY = {
     TimelyType.EVENT: "Event",
 }
 BAN = {ban_type: ban_type.value.title() for ban_type in BanType}
+KIND = {kind: kind.value.title() for kind in UserKind}
 GAUNTLET = {
     1: "Fire",
     2: "Ice",

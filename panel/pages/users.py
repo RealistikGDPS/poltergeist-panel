@@ -7,6 +7,7 @@ from poltergeist_core.resources import Device
 from poltergeist_core.resources import Role
 from poltergeist_core.resources import User
 from poltergeist_core.resources import UserBan
+from poltergeist_core.resources import UserKind
 from poltergeist_core.resources import UserStats
 from poltergeist_core.services import AbstractContext
 from poltergeist_core.services import ServiceError
@@ -96,6 +97,7 @@ def _frame(listing: Listing) -> pd.DataFrame:
             {
                 "id": user.id,
                 "username": user.username,
+                "kind": labels.KIND[user.kind],
                 "email": user.email,
                 "stars": stats.stars if stats else 0,
                 "demons": stats.demons if stats else 0,
@@ -252,6 +254,9 @@ def _detail_view(user_id: int, actor: int) -> None:
         st.markdown(f"#### {user.username}")
         st.badge(f"#{user.id}", color="gray")
 
+    if user.kind is not UserKind.PLAYER:
+        components.badges([user.kind.value], "orange")
+
     components.badges([role.name for role in detail.roles], "violet")
     components.badges([f"{ban.type.value} ban" for ban in detail.bans], "red")
 
@@ -276,6 +281,7 @@ def _detail_view(user_id: int, actor: int) -> None:
         components.facts(
             [
                 ("Email", user.email),
+                ("Kind", labels.KIND[user.kind]),
                 ("Registered", components.stamp(user.registered_at)),
                 ("Last seen", components.age(user.last_seen_at)),
                 ("Messages", user.message_privacy.name.title()),
@@ -305,8 +311,8 @@ def _detail_view(user_id: int, actor: int) -> None:
             f"{ban.type.value} ban until {expiry}: {ban.reason or 'no reason given'}"
         )
 
-    password_tab, rename_tab, colour_tab = st.tabs(
-        ["Password", "Rename", "Comment colour"]
+    password_tab, rename_tab, colour_tab, kind_tab = st.tabs(
+        ["Password", "Rename", "Comment colour", "Kind"]
     )
 
     with password_tab, st.form("set_password", border=False):
@@ -349,6 +355,34 @@ def _detail_view(user_id: int, actor: int) -> None:
                 ),
                 "Comment colour saved.",
             )
+
+    with kind_tab, st.form("kind", border=False):
+        st.markdown(
+            theme.muted(
+                "Non-player accounts never rank and their levels are left out of "
+                "the featured sections."
+            ),
+            unsafe_allow_html=True,
+        )
+        kinds = list(UserKind)
+        chosen = st.selectbox(
+            "Kind",
+            kinds,
+            index=kinds.index(user.kind),
+            format_func=lambda kind: labels.KIND[kind],
+        )
+
+        if st.form_submit_button("Save kind", type="primary"):
+            kind = user.kind if chosen is None else chosen
+            components.report(
+                runtime.active().run(
+                    lambda ctx: moderation.set_user_kind(
+                        ctx, actor_user_id=actor, target_user_id=user.id, kind=kind
+                    )
+                ),
+                "Kind saved.",
+            )
+            st.rerun()
 
 
 def page() -> None:
